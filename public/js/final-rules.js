@@ -3,6 +3,13 @@
   const baseLoad=loadAdminTab;
   loadAdminTab=async function(){
     await baseLoad();
+    if(state.adminTab==='dashboard'){
+      try{
+        const d=await api('/api/admin/dashboard'),cards=[...document.querySelectorAll('#admin-content .stat-card')],income=cards.find(c=>(c.querySelector('small')?.textContent||'').trim().toUpperCase()==='INGRESOS');
+        if(income){const strong=income.querySelector('strong'),entries=Object.entries(d.stats.revenueByCurrency||{});strong.innerHTML=entries.length?entries.map(([cur,val])=>`<span style="display:block">${e(fmtMoney(val,cur))}</span>`).join(''):'US$ 0'}
+      }catch{}
+      return
+    }
     if(state.adminTab!=='courses')return;
     const box=document.getElementById('admin-content');if(!box)return;
     box.querySelectorAll('label').forEach(label=>{
