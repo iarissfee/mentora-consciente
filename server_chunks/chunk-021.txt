@@ -1,0 +1,71 @@
+
+function initEbookStore(){
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS ebooks(
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      slug TEXT NOT NULL UNIQUE,
+      title TEXT NOT NULL,
+      subtitle TEXT NOT NULL DEFAULT '',
+      cover_url TEXT NOT NULL DEFAULT '',
+      price REAL NOT NULL DEFAULT 0,
+      currency TEXT NOT NULL DEFAULT 'USD',
+      active INTEGER NOT NULL DEFAULT 1,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      pdf_stored_name TEXT NOT NULL DEFAULT '',
+      pdf_original_name TEXT NOT NULL DEFAULT '',
+      pdf_bytes INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS ebook_orders(
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      ebook_id INTEGER NOT NULL REFERENCES ebooks(id) ON DELETE CASCADE,
+      amount REAL NOT NULL,
+      currency TEXT NOT NULL,
+      provider_order_id TEXT NOT NULL UNIQUE,
+      status TEXT NOT NULL DEFAULT 'CREATED',
+      created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS ebook_access(
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      ebook_id INTEGER NOT NULL REFERENCES ebooks(id) ON DELETE CASCADE,
+      source TEXT NOT NULL,
+      source_ref TEXT,
+      granted_at TEXT NOT NULL,
+      PRIMARY KEY(user_id,ebook_id)
+    );
+    CREATE TABLE IF NOT EXISTS ebook_sales(
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id),
+      ebook_id INTEGER NOT NULL REFERENCES ebooks(id),
+      amount REAL NOT NULL,
+      currency TEXT NOT NULL,
+      provider TEXT NOT NULL,
+      provider_order_id TEXT NOT NULL,
+      status TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      UNIQUE(provider,provider_order_id)
+    );
+  `);
+  if(db.prepare('SELECT COUNT(*) c FROM ebooks').get().c===0){
+    const q=db.prepare('INSERT INTO ebooks(slug,title,subtitle,cover_url,price,currency,active,sort_order,created_at,updated_at) VALUES(?,?,?,?,?,?,1,?,?,?)');
+    const t=nowIso();
+    q.run('el-poder-del-ahora','El Poder del Ahora','Ebook Digital','https://lh3.googleusercontent.com/aida/AP1WRLuSZyuj56KbsydqRKjk43QqEmKCoiH5cyGStp9H9QBYovzyYOZIa_kx_ol3SS6_zBDZxpm4_PIi9YMR0_fqn6ugdLXR37JdBJPIWCbpHTfHCSvEH85wDIJk2AKRlbp3eqGR1CZTlel29O2oUSw1RgtkURlsUksYqG4tpUZmOB9pTe5L5h_sL6Se1nP6UtjGM-MPEetVK9UtV_f9l3ovYwvO5R2P2Vdyu1jwHrD4hJCfeAsaojaCdQyj37Q',19,'USD',1,t,t);
+    q.run('guia-de-descompresion','Guía de Descompresión','Ebook Digital','https://lh3.googleusercontent.com/aida/AP1WRLv7nftCeLGXhg0e1tpFRavKqY5XlIjRXfWnO_MAcUsr8SVzBHwESa2qhSb31EKAvKYa_QIuyuS0lNuS0cQU0jLah7-9zWZOGFOgHYwIVmulEQa_KhsyFUFgafjyUESOA7Ufsm6JKj0H-GzPKGHiJyKFkdJh1_SKaqdW-ysEXwbLiw4XUwI29svqr9VqvCulAlMJpKG2TQ7sHMRcVVnjXqTAmFiP5MXh5oyVHbSdhmFpY1mlRgZdsy6UfsqN',24,'USD',2,t,t);
+    q.run('auditoria-interna','Auditoría Interna','Guía Práctica','https://lh3.googleusercontent.com/aida/AP1WRLv45G28_69t2aq_RsY960NXkZA0j5DDgjVXWs496IjmEKMAHpyvlCA4NoEaflRdKhJ1v_ZVBOUJXF9ZxdwGEggPZ_0q5h-FUSlraSm9Fzmdd4oCnHlk4uZOsep97n4MAUmjhcI0LEo-v2Tfx0Umg7UGwADgENTqo8JXuogtUOvKiqaRTWMuQ8pnYykCt_Y-pzZQnhWTiVc2NHkZ91AwNFgyECIfi4B-wVnXapHskNXcS3Wzp2gqnglGRuuj',29,'USD',3,t,t);
+    q.run('5x5-ludwig-johnson','5x5 de Ludwig Johnson','Manual de Aplicación','https://lh3.googleusercontent.com/aida/AP1WRLscxSeln1yPFnkTOW2AgSKwyAdcv0rzYDlNdle0xrMaSo7j32n1QbR3fL9fNNrgUAd_oMywokgKvYxV7fTKfzp1BEMPzEjVopSoH3f3yiYfPlBbojxCf45ktM1I8uYf8IR5RVwriJ16gExHynJ-tJL12GoYXevLAG8dCx_zQj9Gz3F3sve8tdAq0E9LU9neg2OENRcdA7eA7f6f7PPZsArbmOUFHzkF8Q45z6V_SPix0AuZN3yTezzosRs',34,'USD',4,t,t);
+  }
+}
+
+function publicEbook(x){return{id:x.id,slug:x.slug,title:x.title,subtitle:x.subtitle,cover_url:x.cover_url,price:x.price,currency:x.currency,ready:!!x.pdf_stored_name}}
+function ebookForPurchase(id){const x=db.prepare('SELECT * FROM ebooks WHERE id=? AND active=1').get(Number(id));return x&&x.pdf_stored_name?x:null}
+function hasEbookAccess(userId,ebookId){return !!db.prepare('SELECT 1 FROM ebook_access WHERE user_id=? AND ebook_id=?').get(userId,ebookId)}
+
+route('GET','/api/public/ebooks',async(req,res)=>{const rows=db.prepare('SELECT * FROM ebooks WHERE active=1 ORDER BY sort_order,id').all().map(publicEbook);json(res,200,{ebooks:rows})});
+route('GET','/api/my/ebooks',async(req,res)=>{const u=auth(req,res);if(!u)return;const rows=db.prepare('SELECT e.* FROM ebooks e JOIN ebook_access a ON a.ebook_id=e.id WHERE a.user_id=? ORDER BY e.sort_order,e.id').all(u.id).map(publicEbook);json(res,200,{ebooks:rows})});
+route('GET','/api/admin/ebooks',async(req,res)=>{if(!auth(req,res,true))return;const rows=db.prepare('SELECT * FROM ebooks ORDER BY sort_order,id').all();json(res,200,{ebooks:rows})});
+route('PUT','/api/admin/ebooks/:id',async(req,res,p)=>{if(!auth(req,res,true)||!stateGuard(req,res))return;const id=Number(p.id),row=db.prepare('SELECT * FROM ebooks WHERE id=?').get(id);if(!row)return json(res,404,{error:'Ebook no encontrado.'});const b=await readJson(req),title=safeString(b.title??row.title,140),slug=safeString(b.slug??row.slug,120).toLowerCase().replace(/[^a-z0-9-]+/g,'-').replace(/^-|-$/g,'');if(title.length<2||slug.length<2)return json(res,400,{error:'Título y URL son obligatorios.'});try{db.prepare('UPDATE ebooks SET slug=?,title=?,subtitle=?,cover_url=?,price=?,currency=?,active=?,sort_order=?,updated_at=? WHERE id=?').run(slug,title,safeString(b.subtitle??row.subtitle,180),safeString(b.cover_url??row.cover_url,1200),money(b.price??row.price),safeString(b.currency??row.currency,3).toUpperCase(),b.active===undefined?row.active:(b.active?1:0),Number(b.sort_order??row.sort_order),nowIso(),id);json(res,200,{ok:true})}catch{return json(res,409,{error:'La URL del ebook ya existe o los datos no son válidos.'})}});
+route('POST','/api/admin/ebooks/:id/pdf',async(req,res,p)=>{if(!auth(req,res,true)||!stateGuard(req,res))return;const id=Number(p.id),row=db.prepare('SELECT * FROM ebooks WHERE id=?').get(id);if(!row)return json(res,404,{error:'Ebook no encontrado.'});const ct=String(req.headers['content-type']||'');if(!ct.startsWith('multipart/form-data'))return json(res,400,{error:'Formato de carga inválido.'});let buf;try{buf=await readBody(req,12*1024*1024+200000)}catch{return json(res,400,{error:'El PDF supera el límite de 12 MB.'})}const {files}=parseMultipart(buf,ct),f=files.pdf;if(!f)return json(res,400,{error:'Elegí un PDF.'});if(f.data.length>12*1024*1024)return json(res,400,{error:'El PDF supera el límite de 12 MB.'});if(f.contentType!=='application/pdf'||path.extname(f.filename).toLowerCase()!=='.pdf'||f.data.slice(0,5).toString()!=='%PDF-')return json(res,400,{error:'El archivo no parece ser un PDF válido.'});const stored=`ebook-${Date.now()}-${crypto.randomBytes(12).toString('hex')}.pdf`;fs.writeFileSync(path.join(UPLOAD_DIR,stored),f.data,{mode:0o600});if(row.pdf_stored_name){const old=path.join(UPLOAD_DIR,path.basename(row.pdf_stored_name));if(fs.existsSync(old))fs.unlinkSync(old)}db.prepare('UPDATE ebooks SET pdf_stored_name=?,pdf_original_name=?,pdf_bytes=?,updated_at=? WHERE id=?').run(stored,path.basename(f.filename),f.data.length,nowIso(),id);json(res,200,{ok:true})});
+route('DELETE','/api/admin/ebooks/:id/pdf',async(req,res,p)=>{if(!auth(req,res,true)||!stateGuard(req,res))return;const id=Number(p.id),row=db.prepare('SELECT * FROM ebooks WHERE id=?').get(id);if(!row)return json(res,404,{error:'Ebook no encontrado.'});if(row.pdf_stored_name){const fp=path.join(UPLOAD_DIR,path.basename(row.pdf_stored_name));if(fs.existsSync(fp))fs.unlinkSync(fp)}db.prepare("UPDATE ebooks SET pdf_stored_name='',pdf_original_name='',pdf_bytes=0,updated_at=? WHERE id=?").run(nowIso(),id);json(res,200,{ok:true})});
+route('GET','/api/ebooks/:id/download',async(req,res,p)=>{const u=auth(req,res);if(!u)return;const id=Number(p.id),row=db.prepare('SELECT * FROM ebooks WHERE id=?').get(id);if(!row||!row.pdf_stored_name)return json(res,404,{error:'Ebook no disponible.'});if(u.role!=='admin'&&!hasEbookAccess(u.id,id))return json(res,403,{error:'Este ebook se habilita después de confirmar la compra.'});const fp=path.join(UPLOAD_DIR,path.basename(row.pdf_stored_name));if(!fs.existsSync(fp))return json(res,404,{error:'Archivo no encontrado.'});securityHeaders(res);res.writeHead(200,{'Content-Type':'application/pdf','Content-Disposition':`attachment; filename*=UTF-8''${encodeURIComponent(row.pdf_original_name||`${row.slug}.pdf`)}`,'Content-Length':fs.statSync(fp).size,'Cache-Control':'private, no-store'});fs.createReadStream(fp).pipe(res)});
