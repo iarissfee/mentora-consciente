@@ -1,0 +1,57 @@
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+const { URL } = require('url');
+const { DatabaseSync } = require('node:sqlite');
+
+// Tiny .env loader (no external packages required)
+const envPath = path.join(__dirname, '.env');
+if (fs.existsSync(envPath)) {
+  for (const line of fs.readFileSync(envPath,'utf8').split(/\r?\n/)) {
+    const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)=(.*)\s*$/);
+    if (!m || process.env[m[1]] !== undefined) continue;
+    let v = m[2];
+    if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1,-1);
+    process.env[m[1]] = v;
+  }
+}
+
+const PORT = Number(process.env.PORT || 3000);
+const ROOT = __dirname;
+const PUBLIC_DIR = path.join(ROOT,'public');
+const PERSIST_ROOT = process.env.PERSIST_DIR ? path.resolve(process.env.PERSIST_DIR) : ROOT;
+const DATA_DIR = path.join(PERSIST_ROOT,'data');
+const UPLOAD_DIR = path.join(PERSIST_ROOT,'private_uploads');
+const isProd = process.env.NODE_ENV === 'production';
+if (isProd && (!process.env.ADMIN_PASSWORD || process.env.ADMIN_PASSWORD === 'CHANGE-ME-NOW-123!')) {
+  throw new Error('En producción tenés que definir ADMIN_PASSWORD con una clave segura antes de iniciar el sitio.');
+}
+fs.mkdirSync(DATA_DIR,{recursive:true}); fs.mkdirSync(UPLOAD_DIR,{recursive:true});
+
+const db = new DatabaseSync(path.join(DATA_DIR,'campus.db'));
+db.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;');
+
+const nowIso=()=>new Date().toISOString();
+const addDaysIso=d=>new Date(Date.now()+Number(d)*86400000).toISOString();
+const safeString=(v,max=300)=>String(v??'').trim().slice(0,max);
+const safeEmail=v=>safeString(v,190).toLowerCase();
+const randomToken=(bytes=32)=>crypto.randomBytes(bytes).toString('hex');
+const sha256=v=>crypto.createHash('sha256').update(v).digest('hex');
+const money=n=>Math.round(Number(n||0)*100)/100;
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+
+function hashPassword(password){
+  const salt=crypto.randomBytes(16);
+  const out=crypto.scryptSync(password,salt,64,{N:16384,r:8,p:1});
+  return `scrypt$${salt.toString('hex')}$${out.toString('hex')}`;
+}
+function verifyPassword(password,stored){
+  try{const [alg,saltHex,hashHex]=String(stored).split('$');if(alg!=='scrypt')return false;const expected=Buffer.from(hashHex,'hex');const actual=crypto.scryptSync(password,Buffer.from(saltHex,'hex'),expected.length,{N:16384,r:8,p:1});return expected.length===actual.length&&crypto.timingSafeEqual(expected,actual)}catch{return false}
+}
+function tx(fn){db.exec('BEGIN IMMEDIATE');try{const r=fn();db.exec('COMMIT');return r}catch(e){db.exec('ROLLBACK');throw e}}
+
+function initDb(){
+  db.exec(`
+  CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL,email TEXT NOT NULL UNIQUE,password_hash TEXT NOT NULL,role TEXT NOT NULL DEFAULT 'student' CHECK(role IN ('student','admin')),created_at TEXT NOT NULL,last_login_at TEXT);
+  CREATE TABLE IF NOT EXISTS sessions(id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,token_hash TEXT NOT NULL UNIQUE,expires_at TEXT NOT NULL,created_at TEXT NOT NULL);

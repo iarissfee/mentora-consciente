@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#1b3022" />
+  <title>Campus · Formación online</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,600;6..96,700;6..96,800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div id="app-shell">
+    <header class="site-header">
+      <a class="brand" href="#home" aria-label="Inicio">
+        <span class="brand-mark">MC</span>
+        <span class="brand-copy"><strong id="brand-name">MENTORA CONSCIENTE</strong><small>CAMPUS PRIVADO</small></span>
+      </a>
+      <nav class="nav" aria-label="Principal">
+        <a href="#courses">Cursos</a>
+        <a href="#memberships">Membresías</a>
+        <a href="#campus" id="campus-link" class="hidden">Mi campus</a>
+        <button id="auth-button" class="nav-button">Ingresar</button>
+        <button id="admin-button" class="nav-button hidden">Administración</button>
+      </nav>
+      <button id="menu-button" class="menu-button" aria-label="Abrir menú">☰</button>
+    </header>
+    <main id="app" tabindex="-1"></main>
+    <footer class="footer">
+      <div><strong id="footer-brand">MENTORA CONSCIENTE</strong><span>Formación online con intención.</span></div>
+      <div><a href="#courses">Cursos</a><a href="#memberships">Membresías</a><button data-open-auth>Ingreso alumnos</button></div>
+      <p>© <span id="year"></span> · Todos los derechos reservados.</p>
+    </footer>
+  </div>
+
+  <dialog id="auth-dialog" class="modal">
+    <button class="modal-close" data-close-dialog aria-label="Cerrar">×</button>
+    <div class="modal-grid">
+      <div class="modal-art">
+        <p class="eyebrow">TU ESPACIO PRIVADO</p>
+        <h2>Entrá al campus.</h2>
+        <p>Tus cursos, progreso y recursos en un mismo lugar.</p>
+      </div>
+      <div class="modal-content">
+        <div class="tabs"><button class="tab active" data-auth-tab="login">Ingresar</button><button class="tab" data-auth-tab="register">Crear cuenta</button></div>
+        <form id="login-form" class="form-stack">
+          <label>Email<input type="email" name="email" autocomplete="email" required></label>
+          <label>Contraseña<input type="password" name="password" autocomplete="current-password" required></label>
+          <button class="btn btn-primary" type="submit">Ingresar</button>
+        </form>
+        <form id="register-form" class="form-stack hidden">
+          <label>Nombre<input type="text" name="name" autocomplete="name" minlength="2" required></label>
+          <label>Email<input type="email" name="email" autocomplete="email" required></label>
+          <label>Contraseña<input type="password" name="password" autocomplete="new-password" minlength="10" required></label>
+          <small>Usá al menos 10 caracteres.</small>
+          <button class="btn btn-primary" type="submit">Crear mi cuenta</button>
+        </form>
+        <p id="auth-message" class="form-message"></p>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="checkout-dialog" class="modal modal-small">
+    <button class="modal-close" data-close-dialog aria-label="Cerrar">×</button>
+    <div class="checkout-box">
+      <p class="eyebrow">CHECKOUT SEGURO</p>
+      <h2 id="checkout-title">Tu compra</h2>
+      <div id="checkout-summary"></div>
+      <button id="paypal-pay-button" class="btn paypal-btn">Pagar con PayPal</button>
+      <button id="demo-pay-button" class="btn btn-outline hidden">Simular pago (modo demo)</button>
+      <p class="secure-note">El precio se valida en el servidor. Tu acceso se habilita sólo cuando el pago queda confirmado.</p>
+      <p id="checkout-message" class="form-message"></p>
+    </div>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="/js/app-1.js" defer></script>
+  <script src="/js/app-2.js" defer></script>
+  <script src="/js/app-3.js" defer></script>
+  <script src="/js/app-4.js" defer></script>
+  <script src="/js/app-5.js" defer></script>
+</body>
+</html>

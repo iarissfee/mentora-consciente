@@ -1,0 +1,6 @@
+.git
+.env
+data/*.db
+data/*.db-*
+private_uploads/*.pdf
+preview-home.png

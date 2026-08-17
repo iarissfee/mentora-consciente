@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 896 1200" role="img" aria-labelledby="title desc">
+  <title id="title">Mentora Consciente · Campus editorial</title>
+  <desc id="desc">Composición editorial premium en crema, verde bosque y terracota.</desc>
+  <rect width="896" height="1200" fill="#efe8df"/>
+  <rect x="0" y="0" width="896" height="520" fill="#1b3022"/>
+  <circle cx="720" cy="190" r="110" fill="#c68347" opacity="0.92"/>
+  <rect x="88" y="440" width="720" height="560" fill="#fcf9f8"/>
+  <rect x="88" y="440" width="12" height="560" fill="#c68347"/>
+  <path d="M528 440h280v560H528z" fill="#d8cec3"/>
+  <path d="M548 487c54 86 72 172 50 259-17 67-10 139 20 216h150V487z" fill="#6f836f" opacity="0.68"/>
+  <path d="M640 470c-24 138-4 276 62 414" fill="none" stroke="#1b3022" stroke-width="11" opacity="0.55"/>
+  <path d="M727 502c-57 120-64 244-21 371" fill="none" stroke="#c68347" stroke-width="7" opacity="0.75"/>
+  <text x="88" y="165" fill="#fcf9f8" font-family="Georgia,serif" font-size="38" letter-spacing="7">MENTORA</text>
+  <text x="88" y="225" fill="#fcf9f8" font-family="Georgia,serif" font-size="62" font-weight="700">Consciente</text>
+  <text x="88" y="300" fill="#cbd7cf" font-family="Arial,sans-serif" font-size="18" letter-spacing="4">CAMPUS · FORMACIÓN ONLINE</text>
+  <text x="142" y="590" fill="#1b3022" font-family="Georgia,serif" font-size="54" font-weight="700">Cambiá tu</text>
+  <text x="142" y="652" fill="#1b3022" font-family="Georgia,serif" font-size="54" font-weight="700">realidad.</text>
+  <text x="142" y="726" fill="#5e625e" font-family="Arial,sans-serif" font-size="19">Estrategia · Marca personal</text>
+  <text x="142" y="760" fill="#5e625e" font-family="Arial,sans-serif" font-size="19">Contenido · Monetización</text>
+  <line x1="142" y1="808" x2="430" y2="808" stroke="#c68347" stroke-width="3"/>
+  <text x="142" y="862" fill="#1b3022" font-family="Arial,sans-serif" font-size="15" letter-spacing="3">MENOS RUIDO.</text>
+  <text x="142" y="895" fill="#1b3022" font-family="Arial,sans-serif" font-size="15" letter-spacing="3">MÁS DIRECCIÓN.</text>
+  <rect x="0" y="1080" width="896" height="120" fill="#061b0e"/>
+  <text x="88" y="1150" fill="#fcf9f8" font-family="Arial,sans-serif" font-size="14" letter-spacing="4">CAMPUS PRIVADO · EXPERIENCIA EDITORIAL</text>
+</svg>
