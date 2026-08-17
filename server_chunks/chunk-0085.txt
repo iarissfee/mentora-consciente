@@ -40,8 +40,8 @@ async function certificatePdfBuffer(record,verifyUrl){
     page.drawText(text,{x:(W-font.widthOfTextAtSize(text,s))/2,y,size:s,font,color});
   };
   page.drawEllipse({x:W/2-15,y:H-70,xScale:9,yScale:17,borderColor:sage,borderWidth:1});
-  page.drawEllipse({x:W/2-28,y:H-73,xScale:9,yScale:17,borderColor:sage,borderWidth:1,rotate:{type:'degrees',angle:-34}});
-  page.drawEllipse({x:W/2-2,y:H-73,xScale:9,yScale:17,borderColor:sage,borderWidth:1,rotate:{type:'degrees',angle:34}});
+  page.drawEllipse({x:W/2-28,y:H-73,xScale:9,yScale:17,borderColor:sage,borderWidth:1});
+  page.drawEllipse({x:W/2-2,y:H-73,xScale:9,yScale:17,borderColor:sage,borderWidth:1});
   center('MENTORA CONSCIENTE',sansBold,8.5,H-101,forest);
   center('Certificado de',serifItalic,36,H-164,forest);
   center('Finalización',serifItalic,42,H-207,forest);
@@ -79,7 +79,7 @@ async function sendCertificatePdf(req,res,record){
   res.writeHead(200,{'Content-Type':'application/pdf','Content-Disposition':`attachment; filename*=UTF-8''${encodeURIComponent(`certificado-${base}.pdf`)}`,'Content-Length':out.length,'Cache-Control':'private, no-store'});
   res.end(out);
 }
-route('GET','/api/my/certificate/:courseId.pdf',async(req,res,p)=>{
+route('GET','/api/my/certificate/:courseId',async(req,res,p)=>{
   const u=auth(req,res);if(!u)return;
   const courseId=Number(p.courseId);
   if(u.role!=='admin'&&!hasCourseAccess(u.id,courseId))return json(res,403,{error:'No tenés acceso a este programa.'});
@@ -88,7 +88,7 @@ route('GET','/api/my/certificate/:courseId.pdf',async(req,res,p)=>{
   if(!record)return json(res,409,{error:'El certificado se habilita cuando completás el 100% de las clases.'});
   await sendCertificatePdf(req,res,record);
 });
-route('GET','/api/admin/certificate/:userId/:courseId.pdf',async(req,res,p)=>{
+route('GET','/api/admin/certificate/:userId/:courseId',async(req,res,p)=>{
   if(!auth(req,res,true))return;
   const record=certificateRecord(Number(p.userId),Number(p.courseId));
   if(!record)return json(res,409,{error:'La alumna todavía no completó este programa.'});
