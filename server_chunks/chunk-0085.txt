@@ -1,0 +1,111 @@
+// Certificados automáticos por finalización de programa.
+function certificateCompletion(userId,courseId){
+  const total=Number(db.prepare('SELECT COUNT(*) c FROM lessons WHERE course_id=? AND published=1').get(courseId)?.c||0);
+  const completed=Number(db.prepare('SELECT COUNT(*) c FROM lessons l JOIN lesson_progress lp ON lp.lesson_id=l.id AND lp.user_id=? AND lp.completed=1 WHERE l.course_id=? AND l.published=1').get(userId,courseId)?.c||0);
+  const last=db.prepare('SELECT MAX(lp.updated_at) completed_at FROM lessons l JOIN lesson_progress lp ON lp.lesson_id=l.id AND lp.user_id=? AND lp.completed=1 WHERE l.course_id=? AND l.published=1').get(userId,courseId)?.completed_at||null;
+  return {total,completed,complete:total>0&&completed>=total,completedAt:last};
+}
+function certificateCode(userId,courseId){
+  const secret=process.env.CERTIFICATE_SECRET||process.env.ADMIN_PASSWORD||'mentora-consciente-local';
+  return 'MC-'+crypto.createHmac('sha256',secret).update(`${userId}:${courseId}`).digest('hex').slice(0,20).toUpperCase();
+}
+function certificateDateLabel(iso){
+  try{return new Intl.DateTimeFormat('es-AR',{day:'2-digit',month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(iso||Date.now()))}catch{return String(iso||'').slice(0,10)}
+}
+function certificateRecord(userId,courseId){
+  const u=db.prepare("SELECT id,name,email FROM users WHERE id=? AND role='student'").get(userId);
+  const c=db.prepare('SELECT id,title,slug FROM courses WHERE id=?').get(courseId);
+  if(!u||!c)return null;
+  const progress=certificateCompletion(userId,courseId);
+  if(!progress.complete)return null;
+  return {user:u,course:c,progress,code:certificateCode(userId,courseId)};
+}
+async function certificatePdfBuffer(record,verifyUrl){
+  const {PDFDocument,StandardFonts,rgb}=require('pdf-lib');
+  const pdf=await PDFDocument.create();
+  const page=pdf.addPage([841.89,595.28]);
+  const W=page.getWidth(),H=page.getHeight();
+  const forest=rgb(0.08,0.22,0.14),sage=rgb(0.43,0.54,0.45),warm=rgb(0.57,0.45,0.36),line=rgb(0.83,0.81,0.77),paper=rgb(0.995,0.986,0.976);
+  page.drawRectangle({x:0,y:0,width:W,height:H,color:paper});
+  page.drawRectangle({x:34,y:32,width:W-68,height:H-64,borderColor:line,borderWidth:1});
+  page.drawRectangle({x:43,y:41,width:W-86,height:H-82,borderColor:rgb(0.9,0.88,0.84),borderWidth:.65});
+  const serif=await pdf.embedFont(StandardFonts.TimesRoman);
+  const serifBold=await pdf.embedFont(StandardFonts.TimesRomanBold);
+  const serifItalic=await pdf.embedFont(StandardFonts.TimesRomanBoldItalic);
+  const sans=await pdf.embedFont(StandardFonts.Helvetica);
+  const sansBold=await pdf.embedFont(StandardFonts.HelveticaBold);
+  const center=(text,font,size,y,color=forest)=>{
+    let s=size;
+    while(s>9&&font.widthOfTextAtSize(text,s)>W-130)s-=.5;
+    page.drawText(text,{x:(W-font.widthOfTextAtSize(text,s))/2,y,size:s,font,color});
+  };
+  page.drawEllipse({x:W/2-15,y:H-70,xScale:9,yScale:17,borderColor:sage,borderWidth:1});
+  page.drawEllipse({x:W/2-28,y:H-73,xScale:9,yScale:17,borderColor:sage,borderWidth:1,rotate:{type:'degrees',angle:-34}});
+  page.drawEllipse({x:W/2-2,y:H-73,xScale:9,yScale:17,borderColor:sage,borderWidth:1,rotate:{type:'degrees',angle:34}});
+  center('MENTORA CONSCIENTE',sansBold,8.5,H-101,forest);
+  center('Certificado de',serifItalic,36,H-164,forest);
+  center('Finalización',serifItalic,42,H-207,forest);
+  center('Este documento certifica que',sans,10,H-252,rgb(0.28,0.29,0.27));
+  center(record.user.name,serif,27,H-299,rgb(0.12,0.12,0.11));
+  page.drawLine({start:{x:190,y:H-309},end:{x:W-190,y:H-309},thickness:.7,color:line});
+  center('ha completado con éxito el programa',sans,9,H-337,rgb(0.32,0.32,0.3));
+  center(record.course.title,serifBold,20,H-367,forest);
+  center('demostrando compromiso, profundidad y serenidad en su proceso de desarrollo consciente.',sans,8.7,H-394,rgb(0.36,0.36,0.34));
+  const dateText=`Finalizado el ${certificateDateLabel(record.progress.completedAt)}`;
+  page.drawText(dateText,{x:72,y:75,size:8.4,font:sans,color:rgb(0.38,0.38,0.36)});
+  page.drawText(`Certificado ${record.code}`,{x:72,y:58,size:7.6,font:sans,color:rgb(0.45,0.45,0.42)});
+  page.drawLine({start:{x:72,y:94},end:{x:255,y:94},thickness:.55,color:line});
+  page.drawText('Mentora Consciente',{x:72,y:101,size:12,font:serifBold,color:forest});
+  page.drawText('Certificación digital',{x:72,y:87,size:7.5,font:sans,color:warm});
+  try{
+    const qrData=await QRCode.toDataURL(verifyUrl,{width:220,margin:1,errorCorrectionLevel:'M',color:{dark:'#173A27',light:'#FFFFFF'}});
+    const png=await pdf.embedPng(Buffer.from(qrData.split(',')[1],'base64'));
+    page.drawImage(png,{x:W-126,y:46,width:60,height:60});
+    page.drawText('Verificar certificado',{x:W-137,y:34,size:7.3,font:sans,color:forest});
+  }catch{}
+  pdf.setTitle(`Certificado - ${record.course.title}`);
+  pdf.setAuthor('Mentora Consciente');
+  pdf.setSubject(`Certificado de finalización de ${record.user.name}`);
+  pdf.setKeywords(['Mentora Consciente','certificado','finalización']);
+  return Buffer.from(await pdf.save());
+}
+async function sendCertificatePdf(req,res,record){
+  const proto=String(req.headers['x-forwarded-proto']||'https').split(',')[0].trim()==='http'?'http':'https';
+  const host=safeString(req.headers.host||'',180);
+  const verifyUrl=`${proto}://${host}/certificate/verify/${encodeURIComponent(record.code)}`;
+  const out=await certificatePdfBuffer(record,verifyUrl);
+  const base=safeString(record.course.slug||'programa',100).replace(/[^a-z0-9_-]+/gi,'-');
+  securityHeaders(res);
+  res.writeHead(200,{'Content-Type':'application/pdf','Content-Disposition':`attachment; filename*=UTF-8''${encodeURIComponent(`certificado-${base}.pdf`)}`,'Content-Length':out.length,'Cache-Control':'private, no-store'});
+  res.end(out);
+}
+route('GET','/api/my/certificate/:courseId.pdf',async(req,res,p)=>{
+  const u=auth(req,res);if(!u)return;
+  const courseId=Number(p.courseId);
+  if(u.role!=='admin'&&!hasCourseAccess(u.id,courseId))return json(res,403,{error:'No tenés acceso a este programa.'});
+  if(u.role==='admin')return json(res,400,{error:'La vista de administración no emite certificados a nombre del administrador.'});
+  const record=certificateRecord(u.id,courseId);
+  if(!record)return json(res,409,{error:'El certificado se habilita cuando completás el 100% de las clases.'});
+  await sendCertificatePdf(req,res,record);
+});
+route('GET','/api/admin/certificate/:userId/:courseId.pdf',async(req,res,p)=>{
+  if(!auth(req,res,true))return;
+  const record=certificateRecord(Number(p.userId),Number(p.courseId));
+  if(!record)return json(res,409,{error:'La alumna todavía no completó este programa.'});
+  await sendCertificatePdf(req,res,record);
+});
+route('GET','/certificate/verify/:code',async(req,res,p)=>{
+  const wanted=safeString(p.code,80).toUpperCase();
+  let found=null;
+  const users=db.prepare("SELECT id,name FROM users WHERE role='student' ORDER BY id").all();
+  const courses=db.prepare("SELECT id,title FROM courses WHERE published=1 ORDER BY id").all();
+  outer:for(const u of users)for(const c of courses){
+    if(certificateCode(u.id,c.id)!==wanted)continue;
+    const progress=certificateCompletion(u.id,c.id);
+    if(progress.complete){found={user:u,course:c,progress,code:wanted};break outer}
+  }
+  const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  if(!found)return text(res,404,'<!doctype html><meta charset="utf-8"><title>Certificado no válido</title><main style="font-family:Arial;max-width:680px;margin:80px auto;padding:30px"><h1>Certificado no válido</h1><p>No pudimos verificar este código.</p></main>','text/html; charset=utf-8');
+  const html=`<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Certificado verificado · Mentora Consciente</title><body style="margin:0;background:#faf7f3;color:#173a27;font-family:Arial,sans-serif"><main style="max-width:720px;margin:60px auto;padding:36px;background:white;border:1px solid #d9d2ca"><p style="letter-spacing:.15em;font-size:12px">MENTORA CONSCIENTE</p><h1 style="font-family:Georgia,serif;font-size:42px;margin:10px 0">Certificado verificado</h1><p>Este certificado corresponde a <strong>${esc(found.user.name)}</strong>.</p><p>Programa: <strong>${esc(found.course.title)}</strong></p><p>Finalización: <strong>${esc(certificateDateLabel(found.progress.completedAt))}</strong></p><p style="margin-top:28px;font-size:12px;color:#6d6a66">Código ${esc(found.code)}</p></main></body></html>`;
+  text(res,200,html,'text/html; charset=utf-8');
+});
