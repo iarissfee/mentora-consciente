@@ -76,7 +76,6 @@ async function persistState(includeAssets=false){
     'persistencia remota'
   );
 
-  // Defer the single top-level initDb() call until PostgreSQL has restored the SQLite snapshot.
   const initCall = "\ninitDb();\n";
   if (!source.includes(initCall)) throw new Error('No se pudo aplicar parche: init diferido');
   source = source.replace(initCall, '\n');
@@ -103,6 +102,8 @@ async function persistState(includeAssets=false){
   db=new DatabaseSync(DB_FILE);
   db.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;');
   initDb();
+  const assetColumns=db.prepare('PRAGMA table_info(assets)').all();
+  if(!assetColumns.some(c=>c.name==='lesson_id'))db.exec('ALTER TABLE assets ADD COLUMN lesson_id INTEGER REFERENCES lessons(id) ON DELETE CASCADE');
   await persistState(true);
   server.listen(PORT,'0.0.0.0',()=>console.log(\`Campus listo en http://0.0.0.0:\${PORT}\${remotePool?' + PostgreSQL persistente':''}\`));
 }
