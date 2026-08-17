@@ -1,0 +1,7 @@
+
+// Extiende la inicialización central sin modificar el núcleo del campus.
+const __mcCoreInitDb=initDb;
+initDb=function(){
+  __mcCoreInitDb();
+  initEbookStore();
+};
