@@ -9,6 +9,9 @@
     ev.preventDefault();ev.stopImmediatePropagation();
     state.adminTab=tab;
     const target=`#admin/${tab}`;
-    if(location.hash===target)renderRoute();else location.hash=target
+    if(location.hash!==target)location.hash=target;
+    // Render explícito para evitar que navegaciones anteriores o caché de hash
+    // dejen el botón marcado sin abrir su contenido.
+    setTimeout(()=>{if(location.hash===target)renderRoute()},0)
   },true)
 })();
