@@ -1,5 +1,13 @@
 // Reglas comerciales finales: la Home define qué programas se venden.
 (function(){
+  const baseCommunity=communityHtml;
+  communityHtml=async function(){
+    if(state.me?.user?.role!=='admin'&&!(state.me?.directCourseIds||[]).length&&!state.me?.membership){
+      return `<section class="auth-gate"><p class="eyebrow">COMUNIDAD PRIVADA</p><h2>Este espacio se habilita después de tu compra.</h2><p>Cuando un pago quede confirmado, vas a poder entrar a Comunidad desde tu campus.</p><a class="btn btn-primary" href="/">Ver programas</a></section>`
+    }
+    try{return await baseCommunity()}catch(x){return `<section class="auth-gate"><h2>Comunidad privada</h2><p>${e(x.message||'Este espacio todavía no está habilitado.')}</p><a class="btn btn-primary" href="#campus">Volver a mi campus</a></section>`}
+  };
+
   const baseLoad=loadAdminTab;
   loadAdminTab=async function(){
     await baseLoad();
