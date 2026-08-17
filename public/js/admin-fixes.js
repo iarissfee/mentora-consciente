@@ -1,72 +1,23 @@
-// Correcciones de navegación admin + previsualización de video.
+// Correcciones de navegación admin + selector/previsualización de proveedores de video.
 (function(){
-  function adminTabFromHref(href){
-    const m=String(href||'').match(/^#admin\/(dashboard|students|courses|community|settings)$/);
-    return m?m[1]:null;
-  }
+  function adminTabFromHref(href){const m=String(href||'').match(/^#admin\/(dashboard|students|courses|community|settings)$/);return m?m[1]:null}
+  function youtubeId(u){if(u.hostname==='youtu.be')return u.pathname.split('/').filter(Boolean)[0]||'';if(u.hostname.includes('youtube.com')){if(u.pathname.startsWith('/embed/'))return u.pathname.split('/')[2]||'';if(u.pathname.startsWith('/shorts/'))return u.pathname.split('/')[2]||'';return u.searchParams.get('v')||''}return ''}
+  function videoSource(raw){const value=String(raw||'').trim();if(!value)return null;try{const u=new URL(value);if(!['https:','http:'].includes(u.protocol))return null;const y=youtubeId(u);if(y)return{kind:'iframe',src:`https://www.youtube-nocookie.com/embed/${encodeURIComponent(y)}`,provider:'YouTube'};if(u.hostname.includes('vimeo.com')){if(u.hostname==='player.vimeo.com')return{kind:'iframe',src:value,provider:'Vimeo'};const parts=u.pathname.split('/').filter(Boolean).reverse(),id=parts.find(x=>/^\d+$/.test(x));if(id)return{kind:'iframe',src:`https://player.vimeo.com/video/${encodeURIComponent(id)}`,provider:'Vimeo'}}if(u.hostname.includes('flowplayer.com')||u.hostname.includes('flowplayer.org')||u.hostname.includes('wowza.com'))return{kind:'iframe',src:value,provider:'Flowplayer / Wowza'};if(/\.(mp4|webm)(?:$|\?)/i.test(value)||u.hostname.endsWith('.r2.dev')||u.hostname.includes('.r2.cloudflarestorage.com'))return{kind:'video',src:value,provider:'Cloudflare R2 / MP4'}}catch{}return null}
+  window.mcVideoSource=videoSource;
+
+  normalizeVideo=function(url){const s=videoSource(url);return s?.kind==='iframe'?s.src:''};
+  const priorLessonDetail=lessonDetail;
+  lessonDetail=function(l,assets=[]){const s=videoSource(l.video_url);if(!s||s.kind!=='video')return priorLessonDetail(l,assets);const base=priorLessonDetail({...l,video_url:''},assets);const player=`<div class="mc-player"><video controls playsinline preload="metadata" src="${e(s.src)}" aria-label="${e(l.title)}"></video></div>`;return base.replace(/<div class="mc-player"><div class="mc-player-placeholder">[\s\S]*?<\/div><\/div>/,player)};
 
   document.addEventListener('click',async ev=>{
     const side=ev.target.closest('.mc-admin-sidebar a[href^="#admin/"]');
-    if(side){
-      ev.preventDefault();
-      const tab=adminTabFromHref(side.getAttribute('href'));
-      if(!tab)return;
-      state.adminTab=tab;
-      history.replaceState(null,'',`#admin/${tab}`);
-      await renderRoute();
-      return;
-    }
-
+    if(side){ev.preventDefault();const tab=adminTabFromHref(side.getAttribute('href'));if(!tab)return;state.adminTab=tab;history.replaceState(null,'',`#admin/${tab}`);await renderRoute();return}
     const preview=ev.target.closest('[data-video-preview-url]');
-    if(preview){
-      ev.preventDefault();
-      const raw=preview.dataset.videoPreviewUrl||'';
-      const src=normalizeVideo(raw);
-      if(!src){toast('Ese enlace de video no es compatible. Usá YouTube o Vimeo.');return}
-      let dlg=document.getElementById('admin-video-preview');
-      if(!dlg){
-        dlg=document.createElement('dialog');
-        dlg.id='admin-video-preview';
-        dlg.className='mc-video-dialog';
-        dlg.innerHTML='<button class="mc-video-close" type="button" aria-label="Cerrar">×</button><div class="mc-video-frame"></div><div class="mc-video-note"><strong>Vista previa de la clase</strong><span>Así lo verá la alumna dentro del campus.</span></div>';
-        document.body.appendChild(dlg);
-        dlg.querySelector('.mc-video-close').onclick=()=>{dlg.close();dlg.querySelector('.mc-video-frame').innerHTML=''};
-        dlg.addEventListener('click',e=>{if(e.target===dlg){dlg.close();dlg.querySelector('.mc-video-frame').innerHTML=''}});
-      }
-      dlg.querySelector('.mc-video-frame').innerHTML=`<iframe src="${e(src)}" title="Vista previa de video" allow="accelerometer; autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>`;
-      dlg.showModal();
-    }
+    if(preview){ev.preventDefault();const raw=preview.dataset.videoPreviewUrl||'',source=videoSource(raw);if(!source){toast('Ese enlace de video no es compatible.');return}let dlg=document.getElementById('admin-video-preview');if(!dlg){dlg=document.createElement('dialog');dlg.id='admin-video-preview';dlg.className='mc-video-dialog';dlg.innerHTML='<button class="mc-video-close" type="button" aria-label="Cerrar">×</button><div class="mc-video-frame"></div><div class="mc-video-note"><strong>Vista previa de la clase</strong><span class="mc-video-provider-name"></span></div>';document.body.appendChild(dlg);dlg.querySelector('.mc-video-close').onclick=()=>{dlg.close();dlg.querySelector('.mc-video-frame').innerHTML=''};dlg.addEventListener('click',e=>{if(e.target===dlg){dlg.close();dlg.querySelector('.mc-video-frame').innerHTML=''}})}const frame=dlg.querySelector('.mc-video-frame');frame.innerHTML=source.kind==='video'?`<video controls autoplay playsinline src="${e(source.src)}"></video>`:`<iframe src="${e(source.src)}" title="Vista previa de video" allow="accelerometer; autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>`;dlg.querySelector('.mc-video-provider-name').textContent=`Fuente: ${source.provider}`;dlg.showModal()}
   });
 
+  document.addEventListener('change',ev=>{const sel=ev.target.closest('.mc-video-provider');if(!sel)return;const form=sel.closest('.add-lesson-form'),input=form?.querySelector('input[name="video_url"]'),help=form?.querySelector('.mc-video-help');if(!input)return;const map={youtube:['https://youtu.be/...','YouTube: puede ser público o No listado.'],vimeo:['https://vimeo.com/...','Vimeo: pegá el enlace del video.'],flowplayer:['https://...','Flowplayer / Wowza: pegá la URL de reproducción o iframe.'],r2:['https://.../clase.mp4','Cloudflare R2: pegá la URL HTTPS directa del archivo MP4.']};const [ph,txt]=map[sel.value]||map.youtube;input.placeholder=ph;if(help)help.textContent=txt});
+
   const originalBindAdminCourses=bindAdminCourses;
-  bindAdminCourses=function(d){
-    originalBindAdminCourses(d);
-    const cards=[...document.querySelectorAll('.mc-manage-course')];
-    d.courses.forEach((course,ci)=>{
-      const card=cards[ci];
-      if(!card)return;
-      const lessonRows=[...card.querySelectorAll('.mc-course-block:first-of-type .mc-admin-list-row')];
-      course.lessons.forEach((lesson,li)=>{
-        if(!lesson.video_url||!lessonRows[li])return;
-        const actions=lessonRows[li];
-        if(actions.querySelector('[data-video-preview-url]'))return;
-        const btn=document.createElement('button');
-        btn.type='button';
-        btn.className='mini-btn mc-video-preview-btn';
-        btn.dataset.videoPreviewUrl=lesson.video_url;
-        btn.textContent='▶ Ver video';
-        const del=actions.querySelector('[data-delete-lesson]');
-        if(del)actions.insertBefore(btn,del);else actions.appendChild(btn);
-      });
-      card.querySelectorAll('.add-lesson-form').forEach(form=>{
-        const video=form.querySelector('input[name="video_url"]');
-        if(video&&!form.querySelector('.mc-video-help')){
-          const help=document.createElement('small');
-          help.className='mc-video-help';
-          help.textContent='Recomendado gratis: subí el video a YouTube como “No listado” y pegá acá el enlace.';
-          video.insertAdjacentElement('afterend',help);
-        }
-      });
-    });
-  };
+  bindAdminCourses=function(d){originalBindAdminCourses(d);const cards=[...document.querySelectorAll('.mc-manage-course')];d.courses.forEach((course,ci)=>{const card=cards[ci];if(!card)return;const lessonRows=[...card.querySelectorAll('.mc-course-block:first-of-type .mc-admin-list-row')];course.lessons.forEach((lesson,li)=>{if(!lesson.video_url||!lessonRows[li])return;const row=lessonRows[li];if(row.querySelector('[data-video-preview-url]'))return;const btn=document.createElement('button');btn.type='button';btn.className='mini-btn mc-video-preview-btn';btn.dataset.videoPreviewUrl=lesson.video_url;btn.textContent='▶ Ver video';const del=row.querySelector('[data-delete-lesson]');if(del)row.insertBefore(btn,del);else row.appendChild(btn)});card.querySelectorAll('.add-lesson-form').forEach(form=>{const video=form.querySelector('input[name="video_url"]');if(!video)return;let provider=form.querySelector('.mc-video-provider');if(!provider){const label=document.createElement('label');label.className='mc-video-provider-wrap';label.innerHTML='<span>Plataforma de video</span><select name="video_provider" class="mc-video-provider"><option value="youtube">YouTube</option><option value="vimeo">Vimeo</option><option value="flowplayer">Flowplayer / Wowza</option><option value="r2">Cloudflare R2 / MP4</option></select>';video.closest('label').insertAdjacentElement('beforebegin',label);provider=label.querySelector('select')}if(!form.querySelector('.mc-video-help')){const help=document.createElement('small');help.className='mc-video-help';help.textContent='YouTube: puede ser público o No listado.';video.insertAdjacentElement('afterend',help)}})})};
 })();
