@@ -15,8 +15,8 @@ function patchSource(source) {
 
   source = requiredReplace(
     source,
-    "const DATA_DIR = path.join(ROOT,'data');\nconst UPLOAD_DIR = path.join(ROOT,'private_uploads');",
-    "const DATA_DIR = path.join(ROOT,'data');\nconst UPLOAD_DIR = path.join(ROOT,'private_uploads');\nconst DB_FILE = path.join(DATA_DIR,'campus.db');",
+    "const DATA_DIR = path.join(PERSIST_ROOT,'data');\nconst UPLOAD_DIR = path.join(PERSIST_ROOT,'private_uploads');",
+    "const DATA_DIR = path.join(PERSIST_ROOT,'data');\nconst UPLOAD_DIR = path.join(PERSIST_ROOT,'private_uploads');\nconst DB_FILE = path.join(DATA_DIR,'campus.db');",
     'DB_FILE'
   );
 
@@ -78,11 +78,10 @@ async function persistState(includeAssets=false){
 
   source = requiredReplace(source, "}\ninitDb();\n\nconst rates", "}\n\nconst rates", 'init diferido');
 
-  const csrfLine = "route('GET','/api/csrf',async(req,res)=>json(res,200,{token:csrfToken(req,res)}));";
   source = requiredReplace(
     source,
-    csrfLine,
-    "route('GET','/api/health',async(req,res)=>json(res,200,{ok:true,storage:remotePool?'postgres':'local'}));\n" + csrfLine,
+    "route('GET','/api/health',async(req,res)=>json(res,200,{ok:true}));",
+    "route('GET','/api/health',async(req,res)=>json(res,200,{ok:true,storage:remotePool?'postgres':'local'}));",
     'health check'
   );
 
@@ -95,14 +94,14 @@ async function persistState(includeAssets=false){
 
   source = requiredReplace(
     source,
-    "server.listen(PORT,()=>console.log(`Campus listo en http://localhost:${PORT}`));",
+    "server.listen(PORT,'0.0.0.0',()=>console.log(`Campus listo en http://0.0.0.0:${PORT}`));",
     `async function bootstrap(){
   await initRemoteStore();
   db=new DatabaseSync(DB_FILE);
   db.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;');
   initDb();
   await persistState(true);
-  server.listen(PORT,()=>console.log(\`Campus listo en http://localhost:\${PORT}\${remotePool?' + PostgreSQL persistente':''}\`));
+  server.listen(PORT,'0.0.0.0',()=>console.log(\`Campus listo en http://0.0.0.0:\${PORT}\${remotePool?' + PostgreSQL persistente':''}\`));
 }
 async function shutdown(){try{await persistState(true);if(remotePool)await remotePool.end()}catch(e){console.error('Cierre persistente:',e)}finally{process.exit(0)}}
 process.once('SIGTERM',shutdown);process.once('SIGINT',shutdown);
