@@ -76,7 +76,10 @@ async function persistState(includeAssets=false){
     'persistencia remota'
   );
 
-  source = requiredReplace(source, "}\ninitDb();\n\nconst rates", "}\n\nconst rates", 'init diferido');
+  // Defer the single top-level initDb() call until PostgreSQL has restored the SQLite snapshot.
+  const initCall = "\ninitDb();\n";
+  if (!source.includes(initCall)) throw new Error('No se pudo aplicar parche: init diferido');
+  source = source.replace(initCall, '\n');
 
   source = requiredReplace(
     source,
