@@ -12,7 +12,6 @@
   `;
   document.head.appendChild(style);
 
-  // Aclara desde el alta que este nombre será el del certificado.
   const relabel=()=>{
     const input=document.querySelector('#register-form input[name="name"]');
     if(!input)return;
@@ -34,7 +33,7 @@
     const done=(d.lessons||[]).filter(x=>x.completed).length;
     if(!total)return '';
     if(done<total)return `<div class="mc-certificate-wait">Certificado de finalización: ${done}/${total} clases completadas. Se habilita automáticamente al llegar al 100%.</div>`;
-    return `<section class="mc-certificate-panel"><div><p class="mc-kicker">PROGRAMA COMPLETADO</p><h3>Tu certificado está listo.</h3><p>Se genera en PDF con tu nombre, este programa, la fecha de finalización y un código QR de verificación.</p></div><a class="mc-certificate-download" href="/api/my/certificate/${Number(d.course.id)}.pdf">Descargar certificado PDF</a></section>`;
+    return `<section class="mc-certificate-panel"><div><p class="mc-kicker">PROGRAMA COMPLETADO</p><h3>Tu certificado está listo.</h3><p>Se genera en PDF con tu nombre, este programa, la fecha de finalización y un código QR de verificación.</p></div><a class="mc-certificate-download" href="/api/my/certificate/${Number(d.course.id)}">Descargar certificado PDF</a></section>`;
   }
 
   const previousBindCourse=bindCourse;
