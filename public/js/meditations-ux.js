@@ -37,7 +37,8 @@
   const previousBindAdminCourses=bindAdminCourses;
   bindAdminCourses=function(d){
     previousBindAdminCourses(d);
-    document.querySelectorAll('.mc-course-footer-actions').forEach((footer,i)=>{
+    document.querySelectorAll('select[name="required_rank"] option[value="0"]').forEach(o=>o.textContent='Compra individual');
+    document.querySelectorAll('.mc-course-footer-actions').forEach(footer=>{
       if(footer.querySelector('.mc-customer-preview-label'))return;
       const label=document.createElement('div');label.className='mc-customer-preview-label';label.innerHTML='<strong>👁 Vista como alumna</strong><span>Previsualizá exactamente cómo queda el curso y qué descargables ve cada nivel.</span>';
       footer.prepend(label);
@@ -45,6 +46,7 @@
       if(links[0])links[0].textContent='Compra individual';
       if(links[1])links[1].textContent='Membresía Esencial';
       if(links[2])links[2].textContent='Membresía Premium';
-    })
+    });
+    document.querySelectorAll('.add-lesson-form').forEach(form=>{if(form.querySelector('.mc-payment-access-note'))return;const note=document.createElement('small');note.className='mc-payment-access-note';note.textContent='La alumna sólo podrá abrir esta clase cuando el curso haya sido habilitado por una compra aprobada o por su membresía.';form.prepend(note)})
   };
 })();
