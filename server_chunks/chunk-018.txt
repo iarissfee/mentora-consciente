@@ -1,0 +1,2 @@
+
+function cleanCommunityImage(v){const s=safeString(v,2200000);if(!s)return '';if(/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/i.test(s)&&s.length<=2100000)return s;try{const u=new URL(s);return (u.protocol==='https:'||u.protocol==='http:')?s:''}catch{return ''}}
