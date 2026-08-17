@@ -1,0 +1,52 @@
+
+function grantEbookPurchase(userId,ebookId,provider,providerOrderId,amount,currency){
+  if(db.prepare("SELECT id FROM ebook_sales WHERE provider=? AND provider_order_id=? AND status='COMPLETED'").get(provider,providerOrderId))return;
+  tx(()=>{
+    db.prepare('INSERT INTO ebook_sales(user_id,ebook_id,amount,currency,provider,provider_order_id,status,created_at) VALUES(?,?,?,?,?,?,?,?)').run(userId,ebookId,amount,currency,provider,providerOrderId,'COMPLETED',nowIso());
+    db.prepare('INSERT INTO ebook_access(user_id,ebook_id,source,source_ref,granted_at) VALUES(?,?,?,?,?) ON CONFLICT(user_id,ebook_id) DO UPDATE SET source=excluded.source,source_ref=excluded.source_ref,granted_at=excluded.granted_at').run(userId,ebookId,provider,providerOrderId,nowIso());
+  })
+}
+
+route('POST','/api/paypal/create-ebook-order',async(req,res)=>{
+  const u=auth(req,res);if(!u||!stateGuard(req,res))return;
+  if(!rateOk(`ebook-pay:${u.id}`,20,60000))return json(res,429,{error:'Demasiados intentos de pago.'});
+  try{
+    const b=await readJson(req),ebook=ebookForPurchase(Number(b.ebookId));
+    if(!ebook||ebook.price<=0)return json(res,400,{error:'Este ebook todavía no está listo para comprar.'});
+    const {token,base}=await paypalToken();
+    const rr=await fetch(`${base}/v2/checkout/orders`,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json','PayPal-Request-Id':crypto.randomUUID()},body:JSON.stringify({intent:'CAPTURE',purchase_units:[{reference_id:`ebook-${ebook.id}`,description:ebook.title.slice(0,120),amount:{currency_code:ebook.currency,value:money(ebook.price).toFixed(2)}}]})});
+    const data=await rr.json();
+    if(!rr.ok||!data.id)return json(res,502,{error:'No se pudo iniciar el pago con PayPal.'});
+    db.prepare('INSERT INTO ebook_orders(user_id,ebook_id,amount,currency,provider_order_id,status,created_at) VALUES(?,?,?,?,?,?,?)').run(u.id,ebook.id,money(ebook.price),ebook.currency,data.id,'CREATED',nowIso());
+    json(res,200,{id:data.id})
+  }catch(e){console.error(e);json(res,503,{error:'PayPal todavía no está configurado o no respondió.'})}
+});
+
+route('POST','/api/paypal/capture-ebook-order/:orderId',async(req,res,p)=>{
+  const u=auth(req,res);if(!u||!stateGuard(req,res))return;
+  try{
+    await readJson(req);
+    const orderId=safeString(p.orderId,80),pending=db.prepare('SELECT * FROM ebook_orders WHERE provider_order_id=? AND user_id=?').get(orderId,u.id);
+    if(!pending)return json(res,404,{error:'Orden no encontrada.'});
+    if(pending.status==='COMPLETED')return json(res,200,{ok:true,redirect:'/campus.html#campus',ebookId:pending.ebook_id});
+    const ebook=ebookForPurchase(pending.ebook_id);if(!ebook)return json(res,409,{error:'El ebook ya no está disponible.'});
+    const {token,base}=await paypalToken();
+    const rr=await fetch(`${base}/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json','PayPal-Request-Id':crypto.randomUUID()},body:'{}'});
+    const data=await rr.json();
+    if(!rr.ok||data.status!=='COMPLETED')return json(res,409,{error:'El pago no quedó completado.',details:data.status||'UNKNOWN'});
+    const cap=data.purchase_units?.[0]?.payments?.captures?.[0],amt=Number(cap?.amount?.value),cur=cap?.amount?.currency_code;
+    if(money(amt)!==money(pending.amount)||cur!==pending.currency)return json(res,409,{error:'La validación del importe no coincide.'});
+    grantEbookPurchase(u.id,pending.ebook_id,'paypal',orderId,pending.amount,pending.currency);
+    db.prepare('UPDATE ebook_orders SET status=? WHERE id=?').run('COMPLETED',pending.id);
+    json(res,200,{ok:true,redirect:'/campus.html#campus',ebookId:pending.ebook_id})
+  }catch(e){console.error(e);json(res,502,{error:'No se pudo confirmar el pago.'})}
+});
+
+route('POST','/api/demo/ebook-purchase',async(req,res)=>{
+  const u=auth(req,res);if(!u||!stateGuard(req,res))return;
+  if(isProd||(process.env.PAYPAL_CLIENT_ID&&process.env.PAYPAL_CLIENT_SECRET))return json(res,404,{error:'No disponible.'});
+  const b=await readJson(req),ebook=ebookForPurchase(Number(b.ebookId));if(!ebook)return json(res,400,{error:'Ebook no disponible.'});
+  const ref=`DEMO-EBOOK-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
+  grantEbookPurchase(u.id,ebook.id,'demo',ref,money(ebook.price),ebook.currency);
+  json(res,200,{ok:true,redirect:'/campus.html#campus',ebookId:ebook.id})
+});
