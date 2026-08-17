@@ -2,6 +2,7 @@
   const esc=(v='')=>String(v).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
   const money=(n,c='EUR')=>new Intl.NumberFormat('es-ES',{style:'currency',currency:c,maximumFractionDigits:0}).format(Number(n||0));
   const css=document.createElement('link');css.rel='stylesheet';css.href='/home-managed.css';document.head.appendChild(css);
+  const earlyTrigger=document.querySelector('.video-frame');if(earlyTrigger)earlyTrigger.addEventListener('click',ev=>ev.preventDefault());
   let data;try{const r=await fetch('/api/public/home',{credentials:'same-origin'});if(!r.ok)return;data=await r.json()}catch{return}
   const s=data.settings||{};
   const hero=document.querySelector('.hero');
