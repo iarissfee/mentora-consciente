@@ -1,24 +1,17 @@
 services:
   - type: web
     name: mentora-consciente
-    runtime: node
-    plan: starter
-    buildCommand: npm install --omit=dev
-    startCommand: npm start
-    autoDeployTrigger: commit
+    runtime: docker
+    plan: free
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PERSIST_DIR
-        value: /opt/render/project/src/storage
+      - key: DATABASE_URL
+        sync: false
       - key: ADMIN_EMAIL
         sync: false
       - key: ADMIN_PASSWORD
         sync: false
       - key: PAYPAL_MODE
         value: sandbox
-    disk:
-      name: campus-data
-      mountPath: /opt/render/project/src/storage
-      sizeGB: 1
