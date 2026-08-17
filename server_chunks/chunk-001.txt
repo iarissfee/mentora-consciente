@@ -4,6 +4,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { URL } = require('url');
 const { DatabaseSync } = require('node:sqlite');
+const QRCode = require('qrcode');
 
 // Tiny .env loader (no external packages required)
 const envPath = path.join(__dirname, '.env');
