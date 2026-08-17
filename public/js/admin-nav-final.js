@@ -1,6 +1,6 @@
 // Navegación final y consistente del menú izquierdo de Administración.
 (function(){
-  const allowed=new Set(['dashboard','students','courses','home','community','settings']);
+  const allowed=new Set(['dashboard','students','courses','home','ebooks','community','settings']);
   document.addEventListener('click',ev=>{
     const a=ev.target.closest('.mc-admin-sidebar a[href^="#admin/"]');
     if(!a)return;
