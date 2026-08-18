@@ -1,0 +1,9 @@
+
+// Endpoint mínimo para la pantalla de acceso estática: permite despertar Render sin mostrar la app.
+route('GET','/wake.svg',async(req,res)=>{
+  securityHeaders(res);
+  const svg='<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2" viewBox="0 0 2 2"><rect width="2" height="2" fill="#ffffff"/></svg>';
+  const b=Buffer.from(svg);
+  res.writeHead(200,{'Content-Type':'image/svg+xml','Content-Length':b.length,'Cache-Control':'no-store, no-cache, must-revalidate'});
+  res.end(b)
+});
