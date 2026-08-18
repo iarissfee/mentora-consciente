@@ -16,10 +16,10 @@
     .dream{padding:82px 0}.dream-card{height:430px;position:relative;overflow:hidden;display:grid;place-items:center}.dream-card img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:brightness(.65)}.dream-card:after{content:"";position:absolute;inset:0;background:rgba(6,27,14,.18)}.dream-card h2{position:relative;z-index:2;color:#fff;font-family:var(--serif);font-size:clamp(46px,5vw,70px);line-height:1.02;max-width:930px;text-align:center;margin:0;padding:30px}
     .programs{background:var(--forest2);color:#fff;padding:104px 0}.section-title{text-align:center;max-width:760px;margin:0 auto 56px}.section-title h2{font-family:var(--serif);font-size:58px;line-height:1;margin:0 0 17px}.section-title p{color:#c6d1c9;font-size:17px;margin:0}.program-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}.program-card{min-height:390px;border:1px solid rgba(255,255,255,.16);padding:31px;display:flex;flex-direction:column;background:rgba(255,255,255,.025);position:relative}.program-card.popular:before{content:"POPULAR";position:absolute;right:0;top:0;background:#452300;color:#ffcfaa;font-size:10px;letter-spacing:.12em;padding:8px 11px}.program-card h3{font-family:var(--serif);font-size:31px;line-height:1.05;margin:8px 0 18px}.program-card p{color:#bdc9c0;font-size:14px;margin:0}.program-price{font-family:var(--serif);font-size:35px;margin-top:auto;margin-bottom:25px}.program-card .buy{height:47px;display:grid;place-items:center;background:#fff;color:var(--forest2);font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}.program-card.popular .buy{background:#452300;color:#ffd1ad}.program-card.club{background:var(--forest)}.program-card.club .buy{background:transparent;border:1px solid #fff;color:#fff}
     .library{padding:110px 0}.library-head{display:flex;justify-content:space-between;align-items:end;border-bottom:1px solid var(--line);padding-bottom:28px;margin-bottom:44px}.library-head h2{font-family:var(--serif);font-size:55px;margin:0 0 12px;color:var(--forest)}.library-head p{color:var(--muted);max-width:650px;margin:0}.all-link{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.1em}.books{display:grid;grid-template-columns:repeat(4,1fr);gap:30px}.book-cover{aspect-ratio:3/4;overflow:hidden;background:#eee;box-shadow:0 20px 45px rgba(6,27,14,.07)}.book-cover img{width:100%;height:100%;object-fit:cover;transition:transform .6s}.book:hover img{transform:scale(1.025)}.book h3{font-family:var(--serif);font-size:25px;line-height:1.08;margin:18px 0 5px;color:var(--forest)}.book p{font-size:13px;color:var(--muted);margin:0}.book-meta{display:flex;justify-content:space-between;margin-top:16px;font-size:13px;font-weight:600}
-    .stories{background:#f6f3f2;padding:98px 0}.stories h2{text-align:center;font-family:var(--serif);font-size:54px;color:var(--forest);margin:0 0 42px}.story-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}.story{background:#fff;border:1px solid #e5e0db;padding:30px}.quote{font-family:var(--serif);font-size:48px;line-height:1;color:#a5b6a8}.story p{font-size:15px;color:#454744;min-height:110px}.story footer{border-top:1px solid #eee;padding-top:16px;font-size:12px}.story strong{display:block;color:var(--forest)}
+    .stories{background:#f6f3f2;padding:98px 0;overflow:hidden}.stories h2{text-align:center;font-family:var(--serif);font-size:54px;color:var(--forest);margin:0 0 42px}.story-grid{display:flex;gap:20px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:2px 0 10px}.story-grid::-webkit-scrollbar{display:none}.story{flex:0 0 min(390px,82vw);scroll-snap-align:start;background:#fff;border:1px solid #e5e0db;padding:30px}.quote{font-family:var(--serif);font-size:48px;line-height:1;color:#a5b6a8}.story p{font-size:15px;color:#454744;min-height:110px}.story footer{border-top:1px solid #eee;padding-top:16px;font-size:12px}.story strong{display:block;color:var(--forest)}
     .footer{background:var(--forest);color:#fff;padding:78px 0}.footer-grid{display:grid;grid-template-columns:2fr 1fr 1fr;gap:40px}.footer h2{font-family:var(--serif);font-size:42px;margin:0 0 12px}.footer p,.footer a{color:#c4d0c7;font-size:13px}.footer-col{display:grid;align-content:start;gap:12px}.footer-col strong{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#92a697;margin-bottom:4px}
-    @media(max-width:1000px){.wrap{padding-left:28px;padding-right:28px}.nav-inner{grid-template-columns:1fr auto}.nav-links{display:none}.program-grid,.books{grid-template-columns:repeat(2,1fr)}.story-grid{grid-template-columns:1fr}.nav-actions{display:none}.mobile-menu{display:block}.hero{padding-top:60px}.dream-card{height:340px}.footer-grid{grid-template-columns:1fr 1fr}}
-    @media(max-width:640px){.wrap{padding-left:20px;padding-right:20px}.topbar{height:72px}.logo{font-size:25px}.hero{padding-top:52px;padding-bottom:62px}.hero h1{font-size:56px}.hero p{font-size:16px}.video-frame{aspect-ratio:4/3}.play{width:66px;height:66px;font-size:27px}.dream{padding:45px 0}.dream-card{height:300px}.dream-card h2{font-size:41px}.programs,.library,.stories{padding:72px 0}.section-title h2,.library-head h2,.stories h2{font-size:43px}.program-grid,.books{grid-template-columns:1fr}.library-head{display:block}.all-link{display:inline-block;margin-top:18px}.footer-grid{grid-template-columns:1fr}.program-card{min-height:340px}}
+    @media(max-width:1000px){.wrap{padding-left:28px;padding-right:28px}.nav-inner{grid-template-columns:1fr auto}.nav-links{display:none}.program-grid,.books{grid-template-columns:repeat(2,1fr)}.nav-actions{display:none}.mobile-menu{display:block}.hero{padding-top:60px}.dream-card{height:340px}.footer-grid{grid-template-columns:1fr 1fr}}
+    @media(max-width:640px){.wrap{padding-left:20px;padding-right:20px}.topbar{height:72px}.logo{font-size:25px}.hero{padding-top:52px;padding-bottom:62px}.hero h1{font-size:56px}.hero p{font-size:16px}.video-frame{aspect-ratio:4/3}.play{width:66px;height:66px;font-size:27px}.dream{padding:45px 0}.dream-card{height:300px}.dream-card h2{font-size:41px}.programs,.library,.stories{padding:72px 0}.section-title h2,.library-head h2,.stories h2{font-size:43px}.program-grid,.books{grid-template-columns:1fr}.library-head{display:block}.all-link{display:inline-block;margin-top:18px}.footer-grid{grid-template-columns:1fr}.program-card{min-height:340px}.story{flex-basis:84vw}}
   </style>
 </head>
 <body>
@@ -83,7 +83,7 @@
   </section>
 
   <section class="stories">
-    <div class="wrap"><h2>Historias de Transformación</h2><div class="story-grid">
+    <div class="wrap"><h2>Historias de Transformación</h2><div class="story-grid" aria-label="Comentarios de alumnas">
       <article class="story"><div class="quote">“</div><p>El programa profundo me dio las herramientas para finalmente entender mis patrones. El enfoque claro y directo es exactamente lo que necesitaba.</p><footer><strong>María C.</strong>Miembro Profundo</footer></article>
       <article class="story"><div class="quote">“</div><p>La Auditoría Interna fue reveladora. Me permitió ver con claridad áreas de mi vida que estaban estancadas por años.</p><footer><strong>Juan P.</strong>Lector Independiente</footer></article>
       <article class="story"><div class="quote">“</div><p>Un espacio elegante y profesional para el crecimiento. No hay exceso de información, solo una experiencia ordenada y profunda.</p><footer><strong>Ana L.</strong>Mentoría VIP</footer></article>
@@ -92,5 +92,24 @@
 </main>
 
 <footer class="footer"><div class="wrap footer-grid"><div><h2>Mentora Consciente</h2><p>Formación online · Campus privado · Recursos y acompañamiento.</p></div><div class="footer-col"><strong>Explorar</strong><a href="#programas">Programas</a><a href="#libreria">Library</a><a href="/campus.html#campus">Campus</a></div><div class="footer-col"><strong>Acceso</strong><a href="/campus.html#campus">Log In</a><a href="/campus.html#memberships">Join</a></div></div></footer>
+<script>
+(function(){
+  const track=document.querySelector('.story-grid');
+  if(!track)return;
+  const cards=[...track.querySelectorAll('.story')];
+  if(cards.length<2)return;
+  let index=0,timer=null;
+  function move(){index=(index+1)%cards.length;const first=cards[0];track.scrollTo({left:cards[index].offsetLeft-first.offsetLeft,behavior:'smooth'})}
+  function start(){clearInterval(timer);timer=setInterval(move,3800)}
+  function stop(){clearInterval(timer)}
+  track.addEventListener('pointerdown',stop);
+  track.addEventListener('pointerup',start);
+  track.addEventListener('touchstart',stop,{passive:true});
+  track.addEventListener('touchend',start,{passive:true});
+  track.addEventListener('mouseenter',stop);
+  track.addEventListener('mouseleave',start);
+  start();
+})();
+</script>
 </body>
 </html>
