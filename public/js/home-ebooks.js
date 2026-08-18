@@ -1,7 +1,7 @@
 (async function(){
   const esc=(v='')=>String(v).replace(/[&<>'\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','\"':'&quot;'}[c]));
   const money=(n,c='USD')=>new Intl.NumberFormat('es-AR',{style:'currency',currency:c,maximumFractionDigits:0}).format(Number(n||0));
-  const ebookCover=x=>{const slug=String(x?.slug||'').toLowerCase(),title=String(x?.title||'').trim().toLowerCase();return slug==='5x5-ludwig-johnson'||slug==='sana-tu-cuerpo'||title==='sana tu cuerpo'?'/sana-tu-cuerpo-cover.svg':x.cover_url};
+  const ebookCover=x=>{const slug=String(x?.slug||'').toLowerCase(),title=String(x?.title||'').trim().toLowerCase();return slug==='5x5-ludwig-johnson'||slug==='sana-tu-cuerpo'||title==='sana tu cuerpo'?'/sana-tu-cuerpo-cover.jpg':x.cover_url};
   let ebooks=[],csrf='',config=null,paypalSdk=null;
   try{const r=await fetch('/api/public/ebooks',{credentials:'same-origin',cache:'no-store'});if(!r.ok)return;ebooks=(await r.json()).ebooks||[]}catch{return}
   const grid=document.querySelector('.books');if(!grid||!ebooks.length)return;
