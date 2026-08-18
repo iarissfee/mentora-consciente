@@ -1,9 +1,16 @@
 
 // Endpoint mínimo para la pantalla de acceso estática: permite despertar Render sin mostrar la app.
+// No usa securityHeaders porque Cross-Origin-Resource-Policy:same-origin impediría que
+// mentora-consciente-acceso pueda detectar este pixel desde otro dominio.
 route('GET','/wake.svg',async(req,res)=>{
-  securityHeaders(res);
   const svg='<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2" viewBox="0 0 2 2"><rect width="2" height="2" fill="#ffffff"/></svg>';
   const b=Buffer.from(svg);
-  res.writeHead(200,{'Content-Type':'image/svg+xml','Content-Length':b.length,'Cache-Control':'no-store, no-cache, must-revalidate'});
+  res.writeHead(200,{
+    'Content-Type':'image/svg+xml',
+    'Content-Length':b.length,
+    'Cache-Control':'no-store, no-cache, must-revalidate',
+    'Access-Control-Allow-Origin':'*',
+    'X-Content-Type-Options':'nosniff'
+  });
   res.end(b)
 });
