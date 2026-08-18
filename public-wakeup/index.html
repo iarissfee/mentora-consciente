@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#f8f5f0" />
+  <meta name="color-scheme" content="light" />
+  <title>Mentora Consciente</title>
+  <style>
+    *{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:Arial,sans-serif;background:#faf7f2;color:#173a27;color-scheme:light}body{min-height:100svh;display:grid;place-items:center;overflow:hidden;position:relative}
+    body:before,body:after{content:"";position:fixed;border-radius:999px;filter:blur(46px);pointer-events:none}
+    body:before{width:330px;height:330px;left:-125px;top:-105px;background:rgba(177,193,177,.34)}
+    body:after{width:390px;height:390px;right:-170px;bottom:-145px;background:rgba(213,196,174,.28)}
+    .shell{width:min(92vw,580px);padding:44px 28px 40px;text-align:center;position:relative;z-index:1}
+    .mark{width:74px;height:74px;border-radius:24px;margin:0 auto 20px;display:grid;place-items:center;background:linear-gradient(145deg,#fff,#eee9e1);border:1px solid rgba(23,58,39,.14);box-shadow:0 18px 55px rgba(23,58,39,.10);font-family:Georgia,'Times New Roman',serif;font-size:24px;font-weight:700;color:#173a27;letter-spacing:-.05em}
+    .eyebrow{font-size:11px;letter-spacing:.22em;font-weight:800;color:#8d745f;text-transform:uppercase;margin-bottom:13px}
+    h1{font-family:Georgia,'Times New Roman',serif;font-weight:500;font-size:clamp(38px,9vw,56px);line-height:.98;letter-spacing:-.035em;margin:0;color:#173a27}
+    .sub{margin:19px auto 0;max-width:420px;font-size:14px;line-height:1.7;color:#6c6a64}
+    .loader{margin:31px auto 0;width:min(325px,78vw);height:7px;background:#e6e5df;border-radius:999px;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(23,58,39,.05)}
+    .loader span{display:block;width:42%;height:100%;border-radius:999px;background:linear-gradient(90deg,#9eae9e,#173a27,#c4ad92);animation:slide 1.35s ease-in-out infinite}
+    .status{margin-top:14px;font-size:11px;letter-spacing:.08em;color:#7f887f;font-weight:700;text-transform:uppercase}
+    .note{margin-top:28px;font-family:Georgia,'Times New Roman',serif;font-style:italic;font-size:13px;color:#9a8776}
+    @keyframes slide{0%{transform:translateX(-120%)}50%{transform:translateX(138%)}100%{transform:translateX(320%)}}
+    @media (prefers-reduced-motion:reduce){.loader span{animation:none;width:100%}}
+  </style>
+</head>
+<body>
+  <main class="shell" aria-live="polite">
+    <div class="mark">MC</div>
+    <div class="eyebrow">Mentora Consciente</div>
+    <h1>Tu espacio<br/>está por abrirse</h1>
+    <p class="sub">Estamos preparando tu experiencia. En unos segundos vas a entrar a tu espacio.</p>
+    <div class="loader" aria-hidden="true"><span></span></div>
+    <div id="status" class="status">Preparando todo para vos…</div>
+    <div class="note">Un espacio para volver a vos.</div>
+  </main>
+  <script>
+    (function(){
+      var backend='https://mentora-consciente.onrender.com';
+      var status=document.getElementById('status');
+      var started=Date.now();
+      function target(){return backend + window.location.pathname + window.location.search + window.location.hash}
+      function check(){
+        var img=new Image();
+        var done=false;
+        var timer=setTimeout(function(){if(done)return;done=true;retry()},6500);
+        img.onload=function(){if(done)return;done=true;clearTimeout(timer);status.textContent='Listo';setTimeout(function(){window.location.replace(target())},420)};
+        img.onerror=function(){if(done)return;done=true;clearTimeout(timer);retry()};
+        img.src=backend+'/wake.svg?t='+Date.now();
+      }
+      function retry(){
+        var elapsed=Date.now()-started;
+        status.textContent=elapsed>30000?'Ya casi está, seguimos preparando tu espacio…':'Preparando todo para vos…';
+        setTimeout(check,1400);
+      }
+      check();
+    })();
+  </script>
+</body>
+</html>
