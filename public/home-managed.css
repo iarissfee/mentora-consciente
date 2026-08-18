@@ -5,4 +5,6 @@
 .programs .program-card.popular{background:#31513f}
 .programs .program-card.club{background:#082815;border-color:rgba(255,255,255,.38)}
 .programs .program-card h3,.programs .program-price{color:#fff}.programs .program-card p{color:#d5ded7}
+/* Manrope renderiza correctamente el glifo € en Android; Bodoni lo mostraba parecido a una C. */
+.programs .program-price{font-family:Manrope,Arial,sans-serif;font-size:32px;font-weight:400;letter-spacing:-.02em}
 @media(max-width:640px){.home-video-dialog{width:96vw}.home-video-stage{aspect-ratio:16/10}.home-purchase-dialog{width:94vw}.home-purchase-box{padding:43px 24px 28px}.home-purchase-box h2{font-size:37px}}
