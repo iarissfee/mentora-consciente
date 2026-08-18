@@ -1,0 +1,23 @@
+
+// Accesos manuales de ebooks: endpoint dedicado para administración.
+route('POST','/api/admin/grant-ebook',async(req,res)=>{
+  if(!auth(req,res,true)||!stateGuard(req,res))return;
+  const b=await readJson(req),userId=Number(b.userId),ebookId=Number(b.ebookId);
+  const user=db.prepare("SELECT id,name,email FROM users WHERE id=? AND role='student'").get(userId);
+  if(!user)return json(res,404,{error:'Alumna no encontrada.'});
+  const ebook=db.prepare('SELECT id,title,pdf_stored_name FROM ebooks WHERE id=?').get(ebookId);
+  if(!ebook)return json(res,404,{error:'Ebook no encontrado.'});
+  db.prepare("INSERT INTO ebook_access(user_id,ebook_id,source,source_ref,granted_at) VALUES(?,?,?,?,?) ON CONFLICT(user_id,ebook_id) DO UPDATE SET source=excluded.source,source_ref=excluded.source_ref,granted_at=excluded.granted_at").run(userId,ebookId,'admin','manual',nowIso());
+  const saved=!!db.prepare('SELECT 1 FROM ebook_access WHERE user_id=? AND ebook_id=?').get(userId,ebookId);
+  if(!saved)return json(res,500,{error:'No se pudo guardar el acceso al ebook.'});
+  json(res,200,{ok:true,ebook:{id:ebook.id,title:ebook.title,ready:!!ebook.pdf_stored_name},student:{id:user.id,name:user.name,email:user.email}})
+});
+
+route('GET','/api/admin/student-library/:userId',async(req,res,p)=>{
+  if(!auth(req,res,true))return;
+  const userId=Number(p.userId),user=db.prepare("SELECT id,name,email FROM users WHERE id=? AND role='student'").get(userId);
+  if(!user)return json(res,404,{error:'Alumna no encontrada.'});
+  const courses=db.prepare('SELECT c.id,c.title FROM courses c JOIN course_access a ON a.course_id=c.id WHERE a.user_id=? ORDER BY c.sort_order,c.id').all(userId);
+  const ebooks=db.prepare('SELECT e.id,e.title,e.pdf_stored_name FROM ebooks e JOIN ebook_access a ON a.ebook_id=e.id WHERE a.user_id=? ORDER BY e.sort_order,e.id').all(userId).map(x=>({id:x.id,title:x.title,ready:!!x.pdf_stored_name}));
+  json(res,200,{user,courses,ebooks})
+});
