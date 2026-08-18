@@ -1,0 +1,51 @@
+
+// Reparación temprana de biblioteca de ebooks: resuelve accesos viejos contra la copia que sí tiene PDF.
+function mcResolveEbookPdfRow(row){
+  if(!row)return null;
+  if(row.pdf_stored_name)return row;
+  const byTitle=db.prepare("SELECT * FROM ebooks WHERE lower(title)=lower(?) AND pdf_stored_name<>'' ORDER BY datetime(updated_at) DESC,id DESC LIMIT 1").get(row.title);
+  if(byTitle)return byTitle;
+  const bySlug=db.prepare("SELECT * FROM ebooks WHERE slug=? AND pdf_stored_name<>'' ORDER BY datetime(updated_at) DESC,id DESC LIMIT 1").get(row.slug);
+  return bySlug||row;
+}
+
+route('GET','/api/my/ebooks',async(req,res)=>{
+  const u=auth(req,res);if(!u)return;
+  const owned=db.prepare('SELECT e.* FROM ebooks e JOIN ebook_access a ON a.ebook_id=e.id WHERE a.user_id=? ORDER BY e.sort_order,e.id').all(u.id);
+  const ebooks=owned.map(original=>{
+    const pdfRow=mcResolveEbookPdfRow(original);
+    return {
+      id:original.id,
+      slug:original.slug,
+      title:original.title,
+      subtitle:original.subtitle,
+      cover_url:ebookCoverUrl(original),
+      price:original.price,
+      currency:original.currency,
+      ready:!!pdfRow?.pdf_stored_name,
+      pdf_source_id:pdfRow?.id||original.id
+    }
+  });
+  json(res,200,{ebooks})
+});
+
+route('GET','/api/ebooks/:id/download',async(req,res,p)=>{
+  const u=auth(req,res);if(!u)return;
+  const id=Number(p.id),original=db.prepare('SELECT * FROM ebooks WHERE id=?').get(id);
+  if(!original)return json(res,404,{error:'Ebook no disponible.'});
+  if(u.role!=='admin'&&!hasEbookAccess(u.id,id))return json(res,403,{error:'Este ebook no está habilitado en esta cuenta.'});
+  const row=mcResolveEbookPdfRow(original);
+  if(!row?.pdf_stored_name)return json(res,404,{error:'El ebook está habilitado, pero no se encontró el vínculo con su PDF.'});
+  const safe=path.basename(row.pdf_stored_name),fp=path.join(UPLOAD_DIR,safe);
+  if(!fs.existsSync(fp)&&remotePool){
+    try{
+      const rr=await remotePool.query('SELECT data FROM mc_asset_blobs WHERE stored_name=$1',[safe]);
+      const data=rr.rows[0]?.data;
+      if(data)fs.writeFileSync(fp,data,{mode:0o600});
+    }catch(e){console.error('Recuperación PDF ebook:',e)}
+  }
+  if(!fs.existsSync(fp))return json(res,404,{error:'El PDF figura cargado, pero el archivo no está disponible en el almacenamiento.'});
+  const st=fs.statSync(fp);securityHeaders(res);
+  res.writeHead(200,{'Content-Type':'application/pdf','Content-Disposition':`attachment; filename*=UTF-8''${encodeURIComponent(row.pdf_original_name||`${row.slug}.pdf`)}`,'Content-Length':st.size,'Cache-Control':'private, no-store'});
+  fs.createReadStream(fp).pipe(res)
+});
