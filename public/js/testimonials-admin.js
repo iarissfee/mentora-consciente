@@ -8,10 +8,12 @@
     if(!box||box.querySelector('#home-testimonials-panel'))return;
     try{
       const d=await api('/api/admin/testimonials');
-      box.insertAdjacentHTML('beforeend',testimonialsPanel(d.testimonials||[]));
+      const anchor=box.querySelector('#home-main-form')?.closest('.panel');
+      if(anchor)anchor.insertAdjacentHTML('afterend',testimonialsPanel(d.testimonials||[]));
+      else box.insertAdjacentHTML('afterbegin',testimonialsPanel(d.testimonials||[]));
       bindTestimonialsEditor();
     }catch(x){
-      const p=document.createElement('section');p.className='panel';p.id='home-testimonials-panel';p.innerHTML=`<p>${e(x.message)}</p>`;box.appendChild(p)
+      const p=document.createElement('section');p.className='panel';p.id='home-testimonials-panel';p.innerHTML=`<p>${e(x.message)}</p>`;box.prepend(p)
     }
   };
 
