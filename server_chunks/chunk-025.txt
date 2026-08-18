@@ -21,3 +21,30 @@ route('GET','/api/admin/student-library/:userId',async(req,res,p)=>{
   const ebooks=db.prepare('SELECT e.id,e.title,e.pdf_stored_name FROM ebooks e JOIN ebook_access a ON a.ebook_id=e.id WHERE a.user_id=? ORDER BY e.sort_order,e.id').all(userId).map(x=>({id:x.id,title:x.title,ready:!!x.pdf_stored_name}));
   json(res,200,{user,courses,ebooks})
 });
+
+// Descarga robusta de ebooks para alumnas: resuelve por slug y recupera el archivo persistido si hace falta.
+route('GET','/api/my/ebook-download/:slug',async(req,res,p)=>{
+  const u=auth(req,res);if(!u)return;
+  const slug=safeString(p.slug,140).toLowerCase();
+  let row;
+  if(u.role==='admin')row=db.prepare('SELECT * FROM ebooks WHERE slug=?').get(slug);
+  else row=db.prepare('SELECT e.* FROM ebooks e JOIN ebook_access a ON a.ebook_id=e.id WHERE a.user_id=? AND e.slug=?').get(u.id,slug);
+  if(!row)return json(res,404,{error:'Este ebook no está habilitado en esta cuenta.'});
+  if(!row.pdf_stored_name){
+    const candidate=db.prepare("SELECT * FROM ebooks WHERE lower(title)=lower(?) AND pdf_stored_name<>'' ORDER BY updated_at DESC,id DESC LIMIT 1").get(row.title);
+    if(candidate)row=candidate;
+  }
+  if(!row.pdf_stored_name)return json(res,404,{error:'El ebook está habilitado, pero el PDF no quedó vinculado correctamente. Volvé a guardarlo desde Administración → Ebooks.'});
+  const safe=path.basename(row.pdf_stored_name),fp=path.join(UPLOAD_DIR,safe);
+  if(!fs.existsSync(fp)&&remotePool){
+    try{
+      const rr=await remotePool.query('SELECT data FROM mc_asset_blobs WHERE stored_name=$1',[safe]);
+      const data=rr.rows[0]?.data;
+      if(data)fs.writeFileSync(fp,data,{mode:0o600});
+    }catch(e){console.error('Recuperación ebook:',e)}
+  }
+  if(!fs.existsSync(fp))return json(res,404,{error:'El PDF figura cargado, pero el archivo no está disponible en el almacenamiento. Volvé a subirlo una vez desde Administración → Ebooks.'});
+  const st=fs.statSync(fp);securityHeaders(res);
+  res.writeHead(200,{'Content-Type':'application/pdf','Content-Disposition':`attachment; filename*=UTF-8''${encodeURIComponent(row.pdf_original_name||`${row.slug}.pdf`)}`,'Content-Length':st.size,'Cache-Control':'private, no-store'});
+  fs.createReadStream(fp).pipe(res)
+});
