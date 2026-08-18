@@ -1,0 +1,29 @@
+
+// Comentarios editables del carrusel de Home.
+function defaultHomeTestimonials(){return[
+  {name:'María C.',role:'Miembro Profundo',text:'El programa profundo me dio las herramientas para finalmente entender mis patrones. El enfoque claro y directo es exactamente lo que necesitaba.'},
+  {name:'Juan P.',role:'Lector Independiente',text:'La Auditoría Interna fue reveladora. Me permitió ver con claridad áreas de mi vida que estaban estancadas por años.'},
+  {name:'Ana L.',role:'Mentoría VIP',text:'Un espacio elegante y profesional para el crecimiento. No hay exceso de información, solo una experiencia ordenada y profunda.'}
+]}
+function sanitizeHomeTestimonials(list){
+  if(!Array.isArray(list))return [];
+  return list.slice(0,12).map(x=>({
+    name:safeString(x&&x.name,80),
+    role:safeString(x&&x.role,100),
+    text:safeString(x&&x.text,700)
+  })).filter(x=>x.name.length>=2&&x.text.length>=2)
+}
+function homeTestimonials(){
+  const row=db.prepare("SELECT value FROM settings WHERE key='home_testimonials'").get();
+  if(!row||!row.value)return defaultHomeTestimonials();
+  try{const items=sanitizeHomeTestimonials(JSON.parse(row.value));return items.length?items:defaultHomeTestimonials()}catch{return defaultHomeTestimonials()}
+}
+route('GET','/api/public/testimonials',async(req,res)=>{json(res,200,{testimonials:homeTestimonials()})});
+route('GET','/api/admin/testimonials',async(req,res)=>{if(!auth(req,res,true))return;json(res,200,{testimonials:homeTestimonials()})});
+route('PUT','/api/admin/testimonials',async(req,res)=>{
+  if(!auth(req,res,true)||!stateGuard(req,res))return;
+  const b=await readJson(req,24000),items=sanitizeHomeTestimonials(b.testimonials);
+  if(!items.length)return json(res,400,{error:'Agregá al menos un comentario con nombre y texto.'});
+  db.prepare("INSERT INTO settings(key,value) VALUES('home_testimonials',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(JSON.stringify(items));
+  json(res,200,{ok:true,testimonials:items})
+});
