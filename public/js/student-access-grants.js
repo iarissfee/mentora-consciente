@@ -59,10 +59,15 @@
       const fd=new FormData(form),type=String(fd.get('grantType')||'course'),itemId=Number(type==='ebook'?fd.get('ebookId'):fd.get('courseId'));
       const msg=dialog.querySelector('#grant-program-message'),submit=form.querySelector('button[type="submit"]');
       if(!itemId){msg.textContent=type==='ebook'?'Elegí un ebook.':'Elegí un programa.';return}
-      submit.disabled=true;msg.textContent='';
+      submit.disabled=true;msg.textContent=type==='ebook'?'Guardando ebook…':'Guardando programa…';
       try{
-        await api('/api/admin/grant',{method:'POST',body:{userId:Number(userId),type,itemId}});
-        dialog.close();toast(type==='ebook'?'Ebook habilitado correctamente':'Programa habilitado correctamente');await loadAdminTab()
+        let out;
+        if(type==='ebook')out=await api('/api/admin/grant-ebook',{method:'POST',body:{userId:Number(userId),ebookId:itemId}});
+        else out=await api('/api/admin/grant',{method:'POST',body:{userId:Number(userId),type:'course',itemId}});
+        dialog.close();
+        if(type==='ebook')toast(out?.ebook?.ready?'Ebook habilitado correctamente':'Ebook habilitado. Falta cargar su PDF para descargarlo.');
+        else toast('Programa habilitado correctamente');
+        await loadAdminTab()
       }catch(x){msg.textContent=x.message||'No se pudo dar acceso.';submit.disabled=false}
     };
     dialog.showModal()
