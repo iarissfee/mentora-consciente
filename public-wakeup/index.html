@@ -39,20 +39,26 @@
       var backend='https://mentora-consciente.onrender.com';
       var status=document.getElementById('status');
       var started=Date.now();
+      var redirected=false;
       function target(){return backend + window.location.pathname + window.location.search + window.location.hash}
+      function go(){if(redirected)return;redirected=true;status.textContent='Listo';setTimeout(function(){window.location.replace(target())},320)}
       function check(){
+        if(redirected)return;
         var img=new Image();
         var done=false;
         var timer=setTimeout(function(){if(done)return;done=true;retry()},6500);
-        img.onload=function(){if(done)return;done=true;clearTimeout(timer);status.textContent='Listo';setTimeout(function(){window.location.replace(target())},420)};
-        img.onerror=function(){if(done)return;done=true;clearTimeout(timer);retry()};
+        img.onload=function(){if(done||redirected)return;done=true;clearTimeout(timer);go()};
+        img.onerror=function(){if(done||redirected)return;done=true;clearTimeout(timer);retry()};
         img.src=backend+'/wake.svg?t='+Date.now();
       }
       function retry(){
+        if(redirected)return;
         var elapsed=Date.now()-started;
         status.textContent=elapsed>30000?'Ya casi está, seguimos preparando tu espacio…':'Preparando todo para vos…';
         setTimeout(check,1400);
       }
+      // Nunca dejar a una alumna atrapada en la pantalla de carga.
+      setTimeout(go,45000);
       check();
     })();
   </script>
