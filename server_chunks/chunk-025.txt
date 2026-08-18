@@ -13,6 +13,17 @@ route('POST','/api/admin/grant-ebook',async(req,res)=>{
   json(res,200,{ok:true,ebook:{id:ebook.id,title:ebook.title,ready:!!ebook.pdf_stored_name},student:{id:user.id,name:user.name,email:user.email}})
 });
 
+route('DELETE','/api/admin/student-library/:userId/ebook/:ebookId',async(req,res,p)=>{
+  if(!auth(req,res,true)||!stateGuard(req,res))return;
+  const userId=Number(p.userId),ebookId=Number(p.ebookId);
+  const user=db.prepare("SELECT id,name,email FROM users WHERE id=? AND role='student'").get(userId);
+  if(!user)return json(res,404,{error:'Alumna no encontrada.'});
+  const ebook=db.prepare('SELECT id,title FROM ebooks WHERE id=?').get(ebookId);
+  if(!ebook)return json(res,404,{error:'Ebook no encontrado.'});
+  const out=db.prepare('DELETE FROM ebook_access WHERE user_id=? AND ebook_id=?').run(userId,ebookId);
+  json(res,200,{ok:true,removed:Number(out.changes||0)>0,ebook:{id:ebook.id,title:ebook.title},student:{id:user.id,name:user.name,email:user.email}})
+});
+
 route('GET','/api/admin/student-library/:userId',async(req,res,p)=>{
   if(!auth(req,res,true))return;
   const userId=Number(p.userId),user=db.prepare("SELECT id,name,email FROM users WHERE id=? AND role='student'").get(userId);
