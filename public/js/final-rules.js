@@ -1,9 +1,31 @@
 // Reglas comerciales finales: la Home define qué programas se venden.
 (function(){
+  function communityCourse(){
+    const courses=state.catalog?.courses||[];
+    return courses.find(c=>/club/.test(`${c.slug||''} ${c.title||''}`.toLowerCase()))||null;
+  }
+  function hasCommunityAccess(){
+    if(state.me?.user?.role==='admin')return true;
+    const club=communityCourse();
+    if(!club)return false;
+    return (state.me?.directCourseIds||[]).some(id=>Number(id)===Number(club.id));
+  }
+
+  const baseSidebar=mcSidebar;
+  mcSidebar=function(active='dashboard'){
+    const html=baseSidebar(active);
+    if(hasCommunityAccess())return html;
+    return html.replace(/<a([^>]*?)href="#community"([^>]*)><span>♧<\/span>\s*Comunidad<\/a>/i,'<span class="disabled"><span>♧</span> Comunidad <em>requiere Club</em></span>');
+  };
+
   const baseCommunity=communityHtml;
   communityHtml=async function(){
-    if(state.me?.user?.role!=='admin'&&!(state.me?.directCourseIds||[]).length&&!state.me?.membership){
-      return `<section class="auth-gate"><p class="eyebrow">COMUNIDAD PRIVADA</p><h2>Este espacio se habilita después de tu compra.</h2><p>Cuando un pago quede confirmado, vas a poder entrar a Comunidad desde tu campus.</p><a class="btn btn-primary" href="/">Ver programas</a></section>`
+    if(!state.me?.user)return gateHtml();
+    if(state.me.user.role!=='admin'){
+      try{await refreshMe()}catch{}
+      if(!hasCommunityAccess()){
+        return `<section class="auth-gate"><p class="eyebrow">COMUNIDAD PRIVADA</p><h2>Comunidad es un programa aparte.</h2><p>Este espacio se habilita únicamente con acceso a <strong>Club de Alumnos</strong>. Comprar Mentoría Consciente, Desprogramación Mental u otro programa no habilita la Comunidad.</p><a class="btn btn-primary" href="/#programas">Ver Club de Alumnos</a><a class="btn btn-outline" href="#campus">Volver a mi campus</a></section>`
+      }
     }
     try{return await baseCommunity()}catch(x){return `<section class="auth-gate"><h2>Comunidad privada</h2><p>${e(x.message||'Este espacio todavía no está habilitado.')}</p><a class="btn btn-primary" href="#campus">Volver a mi campus</a></section>`}
   };
