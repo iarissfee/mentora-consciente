@@ -1,6 +1,6 @@
 (async function(){
   const esc=(v='')=>String(v).replace(/[&<>'\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','\"':'&quot;'}[c]));
-  const money=(n,c='EUR')=>new Intl.NumberFormat('es-ES',{style:'currency',currency:c,maximumFractionDigits:0}).format(Number(n||0));
+  const money=(n,c='EUR')=>String(c||'EUR').toUpperCase()==='EUR'?`€${Math.round(Number(n||0))}`:new Intl.NumberFormat('es-ES',{style:'currency',currency:c,maximumFractionDigits:0}).format(Number(n||0));
   const css=document.createElement('link');css.rel='stylesheet';css.href='/home-managed.css';document.head.appendChild(css);
   const earlyTrigger=document.querySelector('.video-frame');if(earlyTrigger)earlyTrigger.addEventListener('click',ev=>ev.preventDefault());
 
