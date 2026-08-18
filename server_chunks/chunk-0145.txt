@@ -1,0 +1,24 @@
+// Seguridad de Comunidad: es un programa separado (Club de Alumnos).
+function communityProgramId(){
+  const row=db.prepare("SELECT course_id FROM home_programs WHERE active=1 AND course_id IS NOT NULL AND (lower(COALESCE(style,''))='club' OR lower(title) LIKE '%club%') ORDER BY CASE WHEN lower(COALESCE(style,''))='club' THEN 0 ELSE 1 END,id LIMIT 1").get();
+  return Number(row?.course_id||0);
+}
+function hasDirectCommunityAccess(userId){
+  const courseId=communityProgramId();
+  if(!courseId)return false;
+  return !!db.prepare('SELECT 1 ok FROM course_access WHERE user_id=? AND course_id=?').get(Number(userId),courseId);
+}
+
+// Las rutas públicas de Comunidad quedan protegidas aun si alguien intenta llamar la API a mano.
+for(const r of routes){
+  const samples=['/api/community/posts','/api/community/posts/1/like','/api/community/posts/1/comments'];
+  const isCommunityRoute=samples.some(p=>{r.re.lastIndex=0;return r.re.test(p)});
+  if(!isCommunityRoute)continue;
+  const original=r.handler;
+  r.handler=async(req,res,params,urlObj)=>{
+    const u=sessionUser(req);
+    if(!u)return json(res,401,{error:'Iniciá sesión para entrar a Comunidad.'});
+    if(u.role!=='admin'&&!hasDirectCommunityAccess(u.id))return json(res,403,{error:'La Comunidad se habilita únicamente con el programa Club de Alumnos.'});
+    return original(req,res,params,urlObj);
+  };
+}
