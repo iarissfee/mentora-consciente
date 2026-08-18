@@ -60,3 +60,20 @@
     delimitEbookBlocks();
   };
 })();
+
+// Esperas visuales claras: nunca mostrar un cartel oscuro de carga dentro del campus.
+(function(){
+  document.documentElement.style.background='#fcf9f8';
+  document.documentElement.style.colorScheme='light';
+  document.body.style.background='#fcf9f8';
+  const style=document.createElement('style');
+  style.textContent=`html,body,#app-shell,#app{background:#fcf9f8!important;color-scheme:light}.mc-soft-loading{min-height:160px;background:#fcf9f8;display:grid;place-items:center}.mc-soft-loading:after{content:"";display:block;width:48px;height:1px;background:#a68c76;opacity:.45}`;
+  document.head.appendChild(style);
+  if(typeof adminHtml==='function'){
+    const previousAdminHtml=adminHtml;
+    adminHtml=async function(){
+      const html=await previousAdminHtml();
+      return String(html).replace('<div id="admin-content">Cargando…</div>','<div id="admin-content"><div class="mc-soft-loading" aria-hidden="true"></div></div>');
+    };
+  }
+})();
