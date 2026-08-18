@@ -34,7 +34,7 @@ async function initRemoteStore(){
   const ssl=/localhost|127\\.0\\.0\\.1/.test(url)?false:{rejectUnauthorized:false};
   remotePool=new Pool({connectionString:url,ssl,max:3,idleTimeoutMillis:30000});
   await remotePool.query(\`CREATE TABLE IF NOT EXISTS mc_runtime_state (id SMALLINT PRIMARY KEY CHECK(id=1), sqlite_blob BYTEA NOT NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())\`);
-  await remotePool.query(\`CREATE TABLE IF NOT EXISTS mc_asset_blobs (stored_name TEXT PRIMARY KEY, data BYTEA NOT NULL, mime TEXT NOT NULL DEFAULT 'application/pdf', bytes INTEGER NOT NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())\`);
+  await remotePool.query(\`CREATE TABLE IF NOT EXISTS mc_asset_blobs (stored_name TEXT PRIMARY KEY, data BYTEA NOT NULL, mime TEXT NOT NULL DEFAULT 'application/octet-stream', bytes INTEGER NOT NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())\`);
   const r=await remotePool.query('SELECT sqlite_blob FROM mc_runtime_state WHERE id=1');
   if(r.rows[0]?.sqlite_blob){
     for(const suffix of ['','-wal','-shm']){const fp=DB_FILE+suffix;if(fs.existsSync(fp))fs.unlinkSync(fp)}
@@ -48,16 +48,25 @@ async function initRemoteStore(){
   }
 }
 
+function persistedAssetMime(name){
+  const ext=path.extname(name).toLowerCase();
+  if(ext==='.pdf')return 'application/pdf';
+  if(ext==='.jpg'||ext==='.jpeg')return 'image/jpeg';
+  if(ext==='.png')return 'image/png';
+  if(ext==='.webp')return 'image/webp';
+  return 'application/octet-stream';
+}
+
 async function syncAssetsToRemote(){
   if(!remotePool)return;
-  const local=fs.readdirSync(UPLOAD_DIR).filter(n=>n.endsWith('.pdf'));
+  const local=fs.readdirSync(UPLOAD_DIR).filter(n=>/\.(pdf|jpe?g|png|webp)$/i.test(n));
   const rr=await remotePool.query('SELECT stored_name,bytes FROM mc_asset_blobs');
   const remote=new Map(rr.rows.map(r=>[r.stored_name,Number(r.bytes)]));
   for(const name of local){
     const fp=path.join(UPLOAD_DIR,name),st=fs.statSync(fp);
     if(remote.get(name)===st.size)continue;
-    const data=fs.readFileSync(fp);
-    await remotePool.query(\`INSERT INTO mc_asset_blobs(stored_name,data,mime,bytes,updated_at) VALUES($1,$2,'application/pdf',$3,NOW()) ON CONFLICT(stored_name) DO UPDATE SET data=EXCLUDED.data,bytes=EXCLUDED.bytes,updated_at=NOW()\`,[name,data,data.length]);
+    const data=fs.readFileSync(fp),mime=persistedAssetMime(name);
+    await remotePool.query(\`INSERT INTO mc_asset_blobs(stored_name,data,mime,bytes,updated_at) VALUES($1,$2,$3,$4,NOW()) ON CONFLICT(stored_name) DO UPDATE SET data=EXCLUDED.data,mime=EXCLUDED.mime,bytes=EXCLUDED.bytes,updated_at=NOW()\`,[name,data,mime,data.length]);
   }
   const keep=new Set(local);
   for(const name of remote.keys())if(!keep.has(name))await remotePool.query('DELETE FROM mc_asset_blobs WHERE stored_name=$1',[name]);
