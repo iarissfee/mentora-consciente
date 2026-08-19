@@ -1,0 +1,25 @@
+
+// Portada original de Mentora embebida en el repositorio: no depende de enlaces externos.
+const __homeSettingsOriginalPoster=homeSettings;
+homeSettings=function(){
+  const out=__homeSettingsOriginalPoster();
+  out.video_poster='/api/home/original-poster';
+  return out
+};
+
+route('GET','/api/home/original-poster',async(req,res)=>{
+  try{
+    const b64=fs.readFileSync(path.join(PUBLIC_DIR,'mentora-original-hero.jpg.b64'),'utf8').trim();
+    const buf=Buffer.from(b64,'base64');
+    securityHeaders(res);
+    res.writeHead(200,{
+      'Content-Type':'image/jpeg',
+      'Content-Length':buf.length,
+      'Cache-Control':'public, max-age=86400'
+    });
+    res.end(buf)
+  }catch(e){
+    console.error('Portada original Mentora:',e);
+    json(res,500,{error:'No se pudo cargar la portada original.'})
+  }
+});
