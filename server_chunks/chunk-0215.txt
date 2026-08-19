@@ -1,0 +1,62 @@
+
+// Importa portadas externas antiguas una sola vez y luego las sirve desde el propio campus.
+ebookCoverUrl=function(x){
+  const raw=String(x?.cover_url||'');
+  if(x?.cover_stored_name||/^https:\/\//i.test(raw))return `/api/ebooks/${x.id}/cover?v=${encodeURIComponent(x.updated_at||'')}`;
+  return raw
+};
+
+const __ebookCoverRoute=routes.find(r=>r.method==='GET'&&r.pattern==='/api/ebooks/:id/cover');
+if(__ebookCoverRoute)__ebookCoverRoute.handler=async(req,res,p)=>{
+  const id=Number(p.id);
+  let row=db.prepare('SELECT * FROM ebooks WHERE id=?').get(id);
+  if(!row)return json(res,404,{error:'Portada no disponible.'});
+
+  const serveStored=()=>{
+    if(!row.cover_stored_name)return false;
+    const fp=path.join(UPLOAD_DIR,path.basename(row.cover_stored_name));
+    if(!fs.existsSync(fp))return false;
+    const st=fs.statSync(fp);
+    securityHeaders(res);
+    res.writeHead(200,{
+      'Content-Type':ebookCoverMime(row.cover_stored_name),
+      'Content-Length':st.size,
+      'Cache-Control':'public, max-age=86400',
+      'Content-Disposition':'inline'
+    });
+    fs.createReadStream(fp).pipe(res);
+    return true
+  };
+
+  if(serveStored())return;
+
+  const remote=String(row.cover_url||'');
+  if(/^https:\/\//i.test(remote)){
+    try{
+      const rr=await fetch(remote,{headers:{
+        'User-Agent':'Mozilla/5.0 MentoraConsciente/1.0',
+        'Accept':'image/avif,image/webp,image/apng,image/*,*/*;q=0.8'
+      }});
+      if(!rr.ok)throw new Error(`HTTP ${rr.status}`);
+      const buf=Buffer.from(await rr.arrayBuffer());
+      if(!buf.length||buf.length>5*1024*1024)throw new Error('tamaño inválido');
+      const type=String(rr.headers.get('content-type')||'').split(';')[0].toLowerCase();
+      const info=validEbookCover({data:buf,contentType:type});
+      if(!info)throw new Error('formato inválido');
+      const stored=`ebook-cover-${id}-imported-${Date.now()}${info.ext}`;
+      fs.writeFileSync(path.join(UPLOAD_DIR,stored),buf,{mode:0o600});
+      db.prepare('UPDATE ebooks SET cover_stored_name=?,updated_at=? WHERE id=?').run(stored,nowIso(),id);
+      row=db.prepare('SELECT * FROM ebooks WHERE id=?').get(id);
+      try{await persistState(true)}catch(e){console.warn('No se pudo persistir portada importada',e.message)}
+      if(serveStored())return
+    }catch(e){console.warn('No se pudo importar portada externa del ebook',id,e.message)}
+  }
+
+  // Nunca devuelve una imagen rota: muestra un placeholder suave si la portada no está disponible.
+  const title=safeString(row.title||'Ebook',80).replace(/[&<>"']/g,'');
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="630" height="840" viewBox="0 0 630 840"><rect width="630" height="840" fill="#f2eee8"/><rect x="52" y="52" width="526" height="736" fill="none" stroke="#d7cec3"/><text x="315" y="390" text-anchor="middle" font-family="Georgia,serif" font-size="34" fill="#173a27">${title}</text><text x="315" y="438" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" fill="#8a8177">Mentora Consciente</text></svg>`;
+  const b=Buffer.from(svg);
+  securityHeaders(res);
+  res.writeHead(200,{'Content-Type':'image/svg+xml','Content-Length':b.length,'Cache-Control':'no-store'});
+  res.end(b)
+};
