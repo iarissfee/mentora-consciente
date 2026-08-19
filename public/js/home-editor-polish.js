@@ -40,6 +40,9 @@
       box.querySelectorAll('button').forEach(b=>{
         if(b.textContent.trim()==='Guardar Inicio')b.textContent='Guardar Home';
       });
+      box.querySelectorAll('#home-main-form label').forEach(label=>{
+        if(label.textContent.includes('Imagen de portada del video'))label.remove();
+      });
 
       if(!box.querySelector('.mc-home-master-note')){
         const note=document.createElement('section');
