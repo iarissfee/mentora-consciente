@@ -14,14 +14,3 @@ ebookCoverUrl=function(x){
   if(slug==='sana-tu-cuerpo'||slug==='5x5-ludwig-johnson'||String(x?.title||'').trim().toLowerCase()==='sana tu cuerpo')return '/sana-tu-cuerpo-cover.jpg';
   return String(x?.cover_url||'')
 };
-
-// Si sigue guardada la portada vieja de Google del video principal, usa una imagen que sí carga.
-const __homeSettingsStable=homeSettings;
-homeSettings=function(){
-  const out=__homeSettingsStable();
-  const poster=String(out.video_poster||'');
-  if(!poster||/^https:\/\/lh3\.googleusercontent\.com\/aida\/AP1WRLvGP5eItSrIGiXkzuZdmcE/.test(poster)){
-    out.video_poster='https://lh3.googleusercontent.com/aida-public/AB6AXuA6Kd8APaXGTd8StdCXORyd2mKK6TDTtxPWmTeusoCRqE4lNPQpdt8qNCX1139s6FC937Srty_ZnliZSM7iMCcVWVSCXU5XUoD4ey6hJq9w92HZcMTZ0XPSMZycandcUAxuxCM6CBp4-j_0NYywHsxzWZ8WJB-61U2-vSmNzmmJk2R43mrX2ooxMYiL4CtYdojpUiSZEsfujEdamd2or6jnNj1khgRs0NaJnhafcBfQGcUGHuOQHwIWBmh1HRl10DBE-j8';
-  }
-  return out
-};
