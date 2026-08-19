@@ -1,0 +1,44 @@
+
+// Sirve la portada/foto del Home desde el propio campus para que no dependa del navegador ni del host externo.
+const __homeSettingsWithPosterProxy=homeSettings;
+homeSettings=function(){
+  const out=__homeSettingsWithPosterProxy();
+  const raw=String(out.video_poster||'');
+  if(/^https:\/\//i.test(raw))out.video_poster=`/api/home/poster?v=${encodeURIComponent(sha256(raw).slice(0,16))}`;
+  return out
+};
+
+route('GET','/api/home/poster',async(req,res)=>{
+  const raw=String(settingsObj().home_video_poster||'');
+  if(!raw)return json(res,404,{error:'Portada de Home no disponible.'});
+  if(raw.startsWith('/')&&!raw.startsWith('//')){
+    const fp=path.join(PUBLIC_DIR,path.basename(raw));
+    if(!fs.existsSync(fp))return json(res,404,{error:'Portada de Home no encontrada.'});
+    const st=fs.statSync(fp),ext=path.extname(fp).toLowerCase(),type=ext==='.png'?'image/png':ext==='.webp'?'image/webp':'image/jpeg';
+    securityHeaders(res);res.writeHead(200,{'Content-Type':type,'Content-Length':st.size,'Cache-Control':'public, max-age=86400'});return fs.createReadStream(fp).pipe(res)
+  }
+  if(!/^https:\/\//i.test(raw))return json(res,404,{error:'Portada de Home no disponible.'});
+
+  const key=sha256(raw).slice(0,16),prefix=`home-video-poster-${key}`;
+  const local=fs.readdirSync(UPLOAD_DIR).find(n=>n.startsWith(prefix)&&/\.(jpe?g|png|webp)$/i.test(n));
+  if(local){
+    const fp=path.join(UPLOAD_DIR,local),st=fs.statSync(fp),ext=path.extname(local).toLowerCase(),type=ext==='.png'?'image/png':ext==='.webp'?'image/webp':'image/jpeg';
+    securityHeaders(res);res.writeHead(200,{'Content-Type':type,'Content-Length':st.size,'Cache-Control':'public, max-age=86400'});return fs.createReadStream(fp).pipe(res)
+  }
+
+  try{
+    const rr=await fetch(raw,{headers:{'User-Agent':'Mozilla/5.0 MentoraConsciente/1.0','Accept':'image/avif,image/webp,image/apng,image/*,*/*;q=0.8'}});
+    if(!rr.ok)throw new Error(`HTTP ${rr.status}`);
+    const buf=Buffer.from(await rr.arrayBuffer());
+    if(!buf.length||buf.length>8*1024*1024)throw new Error('tamaño inválido');
+    const type=String(rr.headers.get('content-type')||'').split(';')[0].toLowerCase();
+    let ext='';if(type==='image/jpeg')ext='.jpg';else if(type==='image/png')ext='.png';else if(type==='image/webp')ext='.webp';else throw new Error(`formato ${type||'desconocido'}`);
+    const stored=`${prefix}${ext}`;
+    fs.writeFileSync(path.join(UPLOAD_DIR,stored),buf,{mode:0o600});
+    try{await persistState(true)}catch(e){console.warn('No se pudo persistir portada Home',e.message)}
+    securityHeaders(res);res.writeHead(200,{'Content-Type':type,'Content-Length':buf.length,'Cache-Control':'public, max-age=86400'});return res.end(buf)
+  }catch(e){
+    console.warn('No se pudo recuperar portada Home',e.message);
+    return json(res,404,{error:'No se pudo cargar la portada de Home.'})
+  }
+});
