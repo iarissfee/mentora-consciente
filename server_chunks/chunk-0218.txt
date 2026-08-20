@@ -1,21 +1,57 @@
 
 // Portada única y editable de Home.
-// La imagen subida se guarda dentro de settings (SQLite persistido en PostgreSQL),
-// evitando depender del filesystem efímero de Render.
-const __homeSettingsOriginalPoster=homeSettings;
+// Se guarda como BLOB dentro de SQLite; esa base completa se persiste en PostgreSQL.
+// Así no depende del disco efímero de Render, de URLs externas ni de base64 gigante en settings.
+const __homePosterBaseInitDb=initDb;
+initDb=function(){
+  __homePosterBaseInitDb();
+  db.exec(`CREATE TABLE IF NOT EXISTS home_media(
+    id INTEGER PRIMARY KEY CHECK(id=1),
+    mime TEXT NOT NULL,
+    data BLOB NOT NULL,
+    bytes INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL
+  )`);
+
+  // Migra automáticamente una portada de intentos anteriores, si existe.
+  try{
+    const current=db.prepare('SELECT id FROM home_media WHERE id=1').get();
+    if(!current){
+      const s=settingsObj();
+      let data=null,info=null;
+      const legacy=String(s.home_video_poster_data||'');
+      if(legacy){
+        try{data=Buffer.from(legacy,'base64');info=mcDetectHomePoster(data,s.home_video_poster_mime)}catch{}
+      }
+      if((!data||!info)&&s.home_video_poster_stored_name){
+        const safe=path.basename(String(s.home_video_poster_stored_name||'')),fp=path.join(UPLOAD_DIR,safe);
+        if(safe&&fs.existsSync(fp)){try{data=fs.readFileSync(fp);info=mcDetectHomePoster(data,mcHomePosterMime(safe))}catch{}}
+      }
+      if(data&&info){
+        db.prepare('INSERT OR REPLACE INTO home_media(id,mime,data,bytes,updated_at) VALUES(1,?,?,?,?)').run(info.mime,data,data.length,s.home_video_poster_updated_at||nowIso());
+      }
+    }
+    if(db.prepare('SELECT id FROM home_media WHERE id=1').get()){
+      const q=db.prepare('INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value');
+      q.run('home_video_poster_data','');
+      q.run('home_video_poster_stored_name','');
+    }
+  }catch(e){console.warn('Migración portada Home:',e.message)}
+};
+
+const __homeSettingsBeforePosterBlob=homeSettings;
 homeSettings=function(){
-  const out=__homeSettingsOriginalPoster();
-  const s=settingsObj();
-  const data=String(s.home_video_poster_data||'');
-  const stored=String(s.home_video_poster_stored_name||'');
-  out.video_poster_uploaded=!!(data||stored);
-  if(data){
-    out.video_poster=`/api/home/uploaded-poster?v=${encodeURIComponent(s.home_video_poster_updated_at||'1')}`;
-  }else if(stored){
-    out.video_poster=`/api/home/uploaded-poster?v=${encodeURIComponent(s.home_video_poster_updated_at||stored)}`;
-  }else{
-    out.video_poster='/api/home/original-poster?v=5';
-  }
+  const out=__homeSettingsBeforePosterBlob();
+  try{
+    const row=db.prepare('SELECT updated_at FROM home_media WHERE id=1').get();
+    if(row){
+      out.video_poster=`/api/home/poster-image?v=${encodeURIComponent(row.updated_at||'1')}`;
+      out.video_poster_uploaded=true;
+      return out
+    }
+  }catch{}
+  out.video_poster_uploaded=false;
+  out.video_poster='/api/home/original-poster?v=6';
   return out
 };
 
@@ -25,20 +61,21 @@ function mcHomePosterMime(name){
   if(ext==='.webp')return'image/webp';
   return'image/jpeg'
 }
-function mcValidHomePosterBuffer(data,type){
+function mcDetectHomePoster(data,typeHint=''){
   if(!data||!data.length)return null;
-  const d=data,t=String(type||'').toLowerCase().split(';')[0];
-  if((t==='image/jpeg'||t==='image/jpg')&&d.length>3&&d[0]===0xff&&d[1]===0xd8&&d[2]===0xff)return{ext:'.jpg',mime:'image/jpeg'};
-  if(t==='image/png'&&d.length>8&&d[0]===0x89&&d.slice(1,4).toString()==='PNG')return{ext:'.png',mime:'image/png'};
-  if(t==='image/webp'&&d.length>12&&d.slice(0,4).toString()==='RIFF'&&d.slice(8,12).toString()==='WEBP')return{ext:'.webp',mime:'image/webp'};
+  const d=Buffer.from(data),hint=String(typeHint||'').toLowerCase().split(';')[0];
+  if(d.length>3&&d[0]===0xff&&d[1]===0xd8&&d[2]===0xff)return{ext:'.jpg',mime:'image/jpeg'};
+  if(d.length>8&&d[0]===0x89&&d.slice(1,4).toString()==='PNG')return{ext:'.png',mime:'image/png'};
+  if(d.length>12&&d.slice(0,4).toString()==='RIFF'&&d.slice(8,12).toString()==='WEBP')return{ext:'.webp',mime:'image/webp'};
+  if(hint==='image/jpeg'||hint==='image/png'||hint==='image/webp')return null;
   return null
 }
-function mcValidHomePoster(f){return f?mcValidHomePosterBuffer(f.data,f.contentType):null}
+function mcValidHomePoster(f){return f?mcDetectHomePoster(f.data,f.contentType):null}
 function mcServeFallbackPoster(res){
   const jpg=path.join(PUBLIC_DIR,'mentora-original-hero.jpg');
   if(fs.existsSync(jpg)){
     const st=fs.statSync(jpg);securityHeaders(res);
-    res.writeHead(200,{'Content-Type':'image/jpeg','Content-Length':st.size,'Cache-Control':'public, max-age=86400','Content-Disposition':'inline'});
+    res.writeHead(200,{'Content-Type':'image/jpeg','Content-Length':st.size,'Cache-Control':'no-store','Content-Disposition':'inline'});
     return fs.createReadStream(jpg).pipe(res)
   }
   const b64File=path.join(PUBLIC_DIR,'mentora-original-hero.jpg.b64');
@@ -47,7 +84,7 @@ function mcServeFallbackPoster(res){
       const raw=fs.readFileSync(b64File,'utf8').trim(),buf=Buffer.from(raw,'base64');
       if(buf.length>3&&buf[0]===0xff&&buf[1]===0xd8&&buf[2]===0xff){
         securityHeaders(res);
-        res.writeHead(200,{'Content-Type':'image/jpeg','Content-Length':buf.length,'Cache-Control':'public, max-age=86400','Content-Disposition':'inline'});
+        res.writeHead(200,{'Content-Type':'image/jpeg','Content-Length':buf.length,'Cache-Control':'no-store','Content-Disposition':'inline'});
         return res.end(buf)
       }
     }catch(e){console.error('Portada original Mentora:',e)}
@@ -57,81 +94,69 @@ function mcServeFallbackPoster(res){
 
 route('GET','/api/home/original-poster',async(req,res)=>mcServeFallbackPoster(res));
 
-route('GET','/api/home/uploaded-poster',async(req,res)=>{
-  const s=settingsObj();
-  const data=String(s.home_video_poster_data||'');
-  if(data){
-    try{
-      const buf=Buffer.from(data,'base64'),mime=String(s.home_video_poster_mime||'image/jpeg');
-      if(!buf.length)throw new Error('Imagen vacía');
-      securityHeaders(res);
-      res.writeHead(200,{
-        'Content-Type':['image/jpeg','image/png','image/webp'].includes(mime)?mime:'image/jpeg',
-        'Content-Length':buf.length,
-        'Cache-Control':'no-store, no-cache, must-revalidate',
-        'Content-Disposition':'inline'
-      });
-      return res.end(buf)
-    }catch(e){console.error('Portada Home DB:',e)}
-  }
-  const stored=path.basename(String(s.home_video_poster_stored_name||''));
-  if(!stored)return mcServeFallbackPoster(res);
-  const fp=path.join(UPLOAD_DIR,stored);
-  if(!fs.existsSync(fp)&&remotePool){
-    try{
-      const rr=await remotePool.query('SELECT data FROM mc_asset_blobs WHERE stored_name=$1',[stored]);
-      const oldData=rr.rows[0]?.data;if(oldData)fs.writeFileSync(fp,oldData,{mode:0o600});
-    }catch(e){console.error('Recuperación portada Home:',e)}
-  }
-  if(!fs.existsSync(fp))return mcServeFallbackPoster(res);
-  const st=fs.statSync(fp);securityHeaders(res);
-  res.writeHead(200,{'Content-Type':mcHomePosterMime(stored),'Content-Length':st.size,'Cache-Control':'no-store, no-cache, must-revalidate','Content-Disposition':'inline'});
-  fs.createReadStream(fp).pipe(res)
-});
+async function mcServeSavedHomePoster(req,res){
+  let row=null;
+  try{row=db.prepare('SELECT mime,data,bytes,updated_at FROM home_media WHERE id=1').get()}catch{}
+  if(!row||!row.data)return mcServeFallbackPoster(res);
+  const buf=Buffer.from(row.data),info=mcDetectHomePoster(buf,row.mime);
+  if(!buf.length||!info)return mcServeFallbackPoster(res);
+  securityHeaders(res);
+  res.writeHead(200,{
+    'Content-Type':info.mime,
+    'Content-Length':buf.length,
+    'Cache-Control':'no-store, no-cache, must-revalidate',
+    'Content-Disposition':'inline'
+  });
+  res.end(buf)
+}
+route('GET','/api/home/poster-image',mcServeSavedHomePoster);
+// Compatibilidad con URLs que hayan quedado en caché de versiones anteriores.
+route('GET','/api/home/uploaded-poster',mcServeSavedHomePoster);
 
 route('POST','/api/admin/home/poster',async(req,res)=>{
   if(!auth(req,res,true)||!stateGuard(req,res))return;
   const ct=String(req.headers['content-type']||'').toLowerCase();
   let data=null,info=null;
 
-  // Ruta principal: el navegador manda el archivo directamente. Es más estable en Android/iPhone.
-  if(ct.startsWith('image/jpeg')||ct.startsWith('image/jpg')||ct.startsWith('image/png')||ct.startsWith('image/webp')){
-    try{data=await readBody(req,8*1024*1024+1)}catch{return json(res,400,{error:'La imagen supera el límite de 8 MB.'})}
-    if(data.length>8*1024*1024)return json(res,400,{error:'La imagen supera el límite de 8 MB.'});
-    info=mcValidHomePosterBuffer(data,ct);
-  }else if(ct.startsWith('multipart/form-data')){
-    // Compatibilidad con versiones anteriores del editor.
+  if(ct.startsWith('multipart/form-data')){
     let buf;try{buf=await readBody(req,8*1024*1024+350000)}catch{return json(res,400,{error:'La imagen supera el límite de 8 MB.'})}
     const {files}=parseMultipart(buf,ct),f=files.poster;
     if(!f)return json(res,400,{error:'Elegí una foto para la portada.'});
     data=f.data;info=mcValidHomePoster(f);
-  }else return json(res,400,{error:'Usá una imagen JPG, PNG o WebP.'});
+  }else{
+    try{data=await readBody(req,8*1024*1024+1)}catch{return json(res,400,{error:'La imagen supera el límite de 8 MB.'})}
+    info=mcDetectHomePoster(data,ct);
+  }
 
   if(!data||!data.length)return json(res,400,{error:'La imagen llegó vacía. Volvé a elegirla.'});
+  if(data.length>8*1024*1024)return json(res,400,{error:'La imagen supera el límite de 8 MB.'});
   if(!info)return json(res,400,{error:'Usá una imagen JPG, PNG o WebP válida.'});
 
-  const t=nowIso(),q=db.prepare('INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value');
+  const t=nowIso();
+  db.prepare('INSERT INTO home_media(id,mime,data,bytes,updated_at) VALUES(1,?,?,?,?) ON CONFLICT(id) DO UPDATE SET mime=excluded.mime,data=excluded.data,bytes=excluded.bytes,updated_at=excluded.updated_at').run(info.mime,data,data.length,t);
+  const q=db.prepare('INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value');
   tx(()=>{
-    q.run('home_video_poster_data',data.toString('base64'));
+    q.run('home_video_poster_data','');
     q.run('home_video_poster_mime',info.mime);
     q.run('home_video_poster_updated_at',t);
     q.run('home_video_poster_stored_name','');
-    q.run('home_video_poster',`/api/home/uploaded-poster?v=${encodeURIComponent(t)}`);
+    q.run('home_video_poster',`/api/home/poster-image?v=${encodeURIComponent(t)}`);
   });
-  json(res,200,{ok:true,video_poster:`/api/home/uploaded-poster?v=${encodeURIComponent(t)}`,bytes:data.length})
+  try{await persistState(false)}catch(e){console.error('Persistencia inmediata portada Home:',e)}
+  json(res,200,{ok:true,video_poster:`/api/home/poster-image?v=${encodeURIComponent(t)}`,bytes:data.length,mime:info.mime})
 });
 
 route('DELETE','/api/admin/home/poster',async(req,res)=>{
   if(!auth(req,res,true)||!stateGuard(req,res))return;
-  const s=settingsObj(),old=path.basename(String(s.home_video_poster_stored_name||''));
-  if(old){const fp=path.join(UPLOAD_DIR,old);if(fs.existsSync(fp))fs.unlinkSync(fp)}
+  try{db.prepare('DELETE FROM home_media WHERE id=1').run()}catch{}
   const q=db.prepare('INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value'),t=nowIso();
   tx(()=>{
     q.run('home_video_poster_data','');
     q.run('home_video_poster_mime','');
     q.run('home_video_poster_stored_name','');
     q.run('home_video_poster_updated_at',t);
-    q.run('home_video_poster','/api/home/original-poster?v=5');
+    q.run('home_video_poster','/api/home/original-poster?v=6');
   });
-  json(res,200,{ok:true,video_poster:'/api/home/original-poster?v=5'})
+  try{await persistState(false)}catch(e){console.error('Persistencia restauración portada Home:',e)}
+  json(res,200,{ok:true,video_poster:'/api/home/original-poster?v=6'})
 });
