@@ -48,7 +48,7 @@
 
       if(!box.querySelector('#home-poster-editor')){
         let d;try{d=await api('/api/admin/home')}catch{return}
-        const s=d.settings||{},poster=s.video_poster||'/api/home/original-poster?v=5';
+        const s=d.settings||{},poster=s.video_poster||'/api/home/original-poster?v=6';
         const panel=document.createElement('section');
         panel.className='panel';panel.id='home-poster-editor';
         panel.innerHTML=`
@@ -60,30 +60,56 @@
         const firstReal=[...box.querySelectorAll('section.panel')].find(x=>!x.classList.contains('mc-home-master-note'));
         if(firstReal)firstReal.before(panel);else box.append(panel);
         const input=panel.querySelector('#home-poster-file'),preview=panel.querySelector('#home-poster-preview'),save=panel.querySelector('#home-poster-save'),reset=panel.querySelector('#home-poster-reset'),status=panel.querySelector('#home-poster-status');
-        preview.onerror=()=>{preview.style.opacity='.15'};
         let objectUrl='';
+        const releaseObjectUrl=()=>{if(objectUrl){URL.revokeObjectURL(objectUrl);objectUrl=''}};
+        const supportedFile=f=>{
+          const type=String(f?.type||'').toLowerCase();
+          if(['image/jpeg','image/png','image/webp'].includes(type))return true;
+          return /\.(jpe?g|png|webp)$/i.test(String(f?.name||''));
+        };
+        const showServerPoster=async src=>{
+          const sep=String(src).includes('?')?'&':'?';
+          const url=String(src||'/api/home/poster-image')+sep+'t='+Date.now();
+          const r=await fetch(url,{credentials:'same-origin',cache:'no-store'});
+          if(!r.ok)throw new Error('La foto se guardó pero no se pudo volver a abrir.');
+          const blob=await r.blob();
+          if(!String(blob.type||'').startsWith('image/'))throw new Error('El servidor no devolvió una imagen válida.');
+          releaseObjectUrl();objectUrl=URL.createObjectURL(blob);preview.style.opacity='1';preview.src=objectUrl;
+        };
+        preview.onerror=()=>{preview.style.opacity='.18';status.textContent='La portada guardada no se pudo mostrar. Elegí una nueva foto.'};
+
         input.onchange=()=>{
           const f=input.files&&input.files[0];save.disabled=!f;if(!f)return;
           if(f.size>8*1024*1024){status.textContent='La imagen supera 8 MB. Elegí una más liviana.';toast('La imagen supera 8 MB');input.value='';save.disabled=true;return}
-          if(!['image/jpeg','image/png','image/webp'].includes(String(f.type||'').toLowerCase())){status.textContent='Usá una imagen JPG, PNG o WebP.';toast('Formato de imagen no válido');input.value='';save.disabled=true;return}
-          if(objectUrl)URL.revokeObjectURL(objectUrl);objectUrl=URL.createObjectURL(f);preview.style.opacity='1';preview.src=objectUrl;
+          if(!supportedFile(f)){status.textContent='Usá una imagen JPG, PNG o WebP.';toast('Formato de imagen no válido');input.value='';save.disabled=true;return}
+          releaseObjectUrl();objectUrl=URL.createObjectURL(f);preview.style.opacity='1';preview.src=objectUrl;
           status.textContent='Vista previa lista. Tocá Guardar nueva portada.';
         };
+
         save.onclick=async()=>{
           const f=input.files&&input.files[0];if(!f)return;
-          save.disabled=true;input.disabled=true;save.textContent='Guardando…';status.textContent='Subiendo la foto…';
+          save.disabled=true;input.disabled=true;save.textContent='Guardando…';status.textContent='Subiendo y comprobando la foto…';
           try{
-            const r=await fetch('/api/admin/home/poster',{method:'POST',credentials:'same-origin',headers:{'x-csrf-token':state.csrf,'Content-Type':f.type},body:f});
+            const type=['image/jpeg','image/png','image/webp'].includes(String(f.type||'').toLowerCase())?f.type:'application/octet-stream';
+            const r=await fetch('/api/admin/home/poster',{method:'POST',credentials:'same-origin',headers:{'x-csrf-token':state.csrf,'Content-Type':type},body:f});
             let data={};try{data=await r.json()}catch{}
             if(!r.ok)throw new Error(data.error||`Error ${r.status}`);
-            const src=(data.video_poster||'/api/home/uploaded-poster')+(String(data.video_poster||'').includes('?')?'&':'?')+'t='+Date.now();
-            preview.style.opacity='1';preview.src=src;
-            status.textContent='✓ Guardada. Ya está actualizada en Home.';toast('Portada de Home actualizada');
+            await showServerPoster(data.video_poster||'/api/home/poster-image');
+            status.textContent='✓ Guardada y comprobada. Ya está actualizada en Home.';toast('Portada de Home actualizada');
             input.value='';
           }catch(x){status.textContent='No se pudo guardar: '+x.message;toast(x.message)}
           finally{input.disabled=false;save.disabled=!input.files?.length;save.textContent='Guardar nueva portada'}
         };
-        reset.onclick=async()=>{if(!confirm('¿Restaurar la portada original de Mentora?'))return;reset.disabled=true;status.textContent='Restaurando…';try{const r=await api('/api/admin/home/poster',{method:'DELETE'});preview.style.opacity='1';preview.src=(r.video_poster||'/api/home/original-poster?v=5')+(String(r.video_poster||'').includes('?')?'&':'?')+'t='+Date.now();status.textContent='✓ Portada original restaurada.';toast('Portada original restaurada')}catch(x){status.textContent=x.message;toast(x.message)}finally{reset.disabled=false}};
+
+        reset.onclick=async()=>{
+          if(!confirm('¿Restaurar la portada original de Mentora?'))return;
+          reset.disabled=true;status.textContent='Restaurando…';
+          try{
+            const r=await api('/api/admin/home/poster',{method:'DELETE'});
+            await showServerPoster(r.video_poster||'/api/home/original-poster?v=6');
+            status.textContent='✓ Portada original restaurada.';toast('Portada original restaurada')
+          }catch(x){status.textContent=x.message;toast(x.message)}finally{reset.disabled=false}
+        };
       }
     }
   };
