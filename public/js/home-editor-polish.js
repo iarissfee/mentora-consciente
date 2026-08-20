@@ -48,23 +48,23 @@
 
       if(!box.querySelector('#home-poster-editor')){
         let d;try{d=await api('/api/admin/home')}catch{return}
-        const s=d.settings||{},poster=s.video_poster||'/mentora-original-hero.jpg';
+        const s=d.settings||{},poster=s.video_poster||'/api/home/original-poster?v=4';
         const panel=document.createElement('section');
         panel.className='panel';panel.id='home-poster-editor';
         panel.innerHTML=`
           <div class="mc-panel-heading"><div><p class="mc-kicker">PORTADA DE HOME</p><h3>Foto del video de inicio</h3><p>Elegí una foto y se guarda automáticamente. No tenés que pegar links ni tocar otro botón.</p></div></div>
           <div style="display:grid;grid-template-columns:minmax(220px,420px) 1fr;gap:24px;align-items:start">
             <div style="background:#f2eee8;border:1px solid #e2ddd7;overflow:hidden;aspect-ratio:16/10;display:grid;place-items:center"><img id="home-poster-preview" src="${e(poster)}" alt="Portada actual" style="width:100%;height:100%;object-fit:cover;display:block"></div>
-            <div><label style="display:grid;gap:8px;font-weight:600">Elegir nueva foto<input id="home-poster-file" type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" style="width:100%"></label><p style="font-size:12px;color:#6a6a65;margin:10px 0 18px">JPG, PNG o WebP · máximo 20 MB. Apenas la elegís, se guarda sola.</p><div style="display:flex;gap:10px;flex-wrap:wrap"><button id="home-poster-reset" class="mini-btn" type="button">Restaurar original</button><a class="mini-btn" href="/" target="_blank" rel="noopener">Ver Home</a></div><p id="home-poster-status" style="font-size:12px;margin:14px 0 0;color:#536157;font-weight:600"></p></div>
+            <div><label style="display:grid;gap:8px;font-weight:600">Elegir nueva foto<input id="home-poster-file" type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" style="width:100%"></label><p style="font-size:12px;color:#6a6a65;margin:10px 0 18px">JPG, PNG o WebP · máximo 8 MB. Apenas la elegís, se guarda sola.</p><div style="display:flex;gap:10px;flex-wrap:wrap"><button id="home-poster-reset" class="mini-btn" type="button">Restaurar original</button><a class="mini-btn" href="/" target="_blank" rel="noopener">Ver Home</a></div><p id="home-poster-status" style="font-size:12px;margin:14px 0 0;color:#536157;font-weight:600"></p></div>
           </div>`;
         const firstReal=[...box.querySelectorAll('section.panel')].find(x=>!x.classList.contains('mc-home-master-note'));
         if(firstReal)firstReal.before(panel);else box.append(panel);
         const input=panel.querySelector('#home-poster-file'),preview=panel.querySelector('#home-poster-preview'),reset=panel.querySelector('#home-poster-reset'),status=panel.querySelector('#home-poster-status');
-        preview.onerror=()=>{if(preview.dataset.fallback)return;preview.dataset.fallback='1';preview.src='/mentora-original-hero.jpg?v=3'};
+        preview.onerror=()=>{if(preview.dataset.fallback)return;preview.dataset.fallback='1';preview.src='/api/home/original-poster?v=4'};
         let objectUrl='';
         input.onchange=async()=>{
           const f=input.files&&input.files[0];if(!f)return;
-          if(f.size>20*1024*1024){status.textContent='La imagen supera 20 MB. Elegí una más liviana.';toast('La imagen supera 20 MB');input.value='';return}
+          if(f.size>8*1024*1024){status.textContent='La imagen supera 8 MB. Elegí una más liviana.';toast('La imagen supera 8 MB');input.value='';return}
           if(objectUrl)URL.revokeObjectURL(objectUrl);objectUrl=URL.createObjectURL(f);preview.dataset.fallback='';preview.src=objectUrl;
           status.textContent='Guardando la foto…';input.disabled=true;
           const fd=new FormData();fd.append('poster',f,f.name||'portada');
@@ -76,7 +76,7 @@
             status.textContent='No se pudo guardar: '+x.message;toast(x.message)
           }finally{input.disabled=false;input.value=''}
         };
-        reset.onclick=async()=>{if(!confirm('¿Restaurar la portada original de Mentora?'))return;reset.disabled=true;status.textContent='Restaurando…';try{const r=await api('/api/admin/home/poster',{method:'DELETE'});preview.dataset.fallback='';preview.src=(r.video_poster||'/mentora-original-hero.jpg')+'?t='+Date.now();status.textContent='✓ Portada original restaurada.';toast('Portada original restaurada')}catch(x){status.textContent=x.message;toast(x.message)}finally{reset.disabled=false}};
+        reset.onclick=async()=>{if(!confirm('¿Restaurar la portada original de Mentora?'))return;reset.disabled=true;status.textContent='Restaurando…';try{const r=await api('/api/admin/home/poster',{method:'DELETE'});preview.dataset.fallback='';preview.src=(r.video_poster||'/api/home/original-poster?v=4')+(String(r.video_poster||'').includes('?')?'&':'?')+'t='+Date.now();status.textContent='✓ Portada original restaurada.';toast('Portada original restaurada')}catch(x){status.textContent=x.message;toast(x.message)}finally{reset.disabled=false}};
       }
     }
   };
