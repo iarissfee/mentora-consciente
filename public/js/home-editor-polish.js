@@ -60,30 +60,34 @@
         const firstReal=[...box.querySelectorAll('section.panel')].find(x=>!x.classList.contains('mc-home-master-note'));
         if(firstReal)firstReal.before(panel);else box.append(panel);
         const input=panel.querySelector('#home-poster-file'),preview=panel.querySelector('#home-poster-preview'),save=panel.querySelector('#home-poster-save'),reset=panel.querySelector('#home-poster-reset'),status=panel.querySelector('#home-poster-status');
-        let objectUrl='';
-        const releaseObjectUrl=()=>{if(objectUrl){URL.revokeObjectURL(objectUrl);objectUrl=''}};
         const supportedFile=f=>{
           const type=String(f?.type||'').toLowerCase();
           if(['image/jpeg','image/png','image/webp'].includes(type))return true;
           return /\.(jpe?g|png|webp)$/i.test(String(f?.name||''));
         };
-        const showServerPoster=async src=>{
-          const sep=String(src).includes('?')?'&':'?';
-          const url=String(src||'/api/home/poster-image')+sep+'t='+Date.now();
-          const r=await fetch(url,{credentials:'same-origin',cache:'no-store'});
-          if(!r.ok)throw new Error('La foto se guardó pero no se pudo volver a abrir.');
-          const blob=await r.blob();
-          if(!String(blob.type||'').startsWith('image/'))throw new Error('El servidor no devolvió una imagen válida.');
-          releaseObjectUrl();objectUrl=URL.createObjectURL(blob);preview.style.opacity='1';preview.src=objectUrl;
-        };
+        const showLocalPreview=f=>new Promise((resolve,reject)=>{
+          const reader=new FileReader();
+          reader.onload=()=>{preview.style.opacity='1';preview.src=String(reader.result||'');resolve()};
+          reader.onerror=()=>reject(new Error('No se pudo abrir la foto elegida.'));
+          reader.readAsDataURL(f);
+        });
+        const showServerPoster=src=>new Promise((resolve,reject)=>{
+          const base=String(src||'/api/home/poster-image');
+          const sep=base.includes('?')?'&':'?';
+          const url=base+sep+'t='+Date.now();
+          const probe=new Image();
+          probe.onload=()=>{preview.style.opacity='1';preview.src=url;resolve()};
+          probe.onerror=()=>reject(new Error('La foto se guardó pero no se pudo volver a abrir.'));
+          probe.src=url;
+        });
         preview.onerror=()=>{preview.style.opacity='.18';status.textContent='La portada guardada no se pudo mostrar. Elegí una nueva foto.'};
 
-        input.onchange=()=>{
+        input.onchange=async()=>{
           const f=input.files&&input.files[0];save.disabled=!f;if(!f)return;
           if(f.size>8*1024*1024){status.textContent='La imagen supera 8 MB. Elegí una más liviana.';toast('La imagen supera 8 MB');input.value='';save.disabled=true;return}
           if(!supportedFile(f)){status.textContent='Usá una imagen JPG, PNG o WebP.';toast('Formato de imagen no válido');input.value='';save.disabled=true;return}
-          releaseObjectUrl();objectUrl=URL.createObjectURL(f);preview.style.opacity='1';preview.src=objectUrl;
-          status.textContent='Vista previa lista. Tocá Guardar nueva portada.';
+          try{await showLocalPreview(f);status.textContent='Vista previa lista. Tocá Guardar nueva portada.'}
+          catch(x){status.textContent=x.message;toast(x.message);input.value='';save.disabled=true}
         };
 
         save.onclick=async()=>{
